@@ -38,7 +38,7 @@ var (
 
 	// First peer data for not validators only
 	FirstPeerIdx     int64  = 1
-	FirstPeerIp      string = "185.151.245.69:65355"
+	FirstPeerIp      string = "194.88.107.114:65355"
 	FirstPeerAddress string = "nd12l5h6aaza5mn39ayg79g29n75esp0wwjsuf2zg293gdpuc5rrmpq42mpa0"
 
 	// API config
