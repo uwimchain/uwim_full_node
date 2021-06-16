@@ -17,17 +17,15 @@ type ConfigData struct {
 	TokensCount int64              `json:"tokensCount"`
 	Tax         float64            `json:"tax"`
 	Version     string             `json:"version"`
-	Validators  []memory.Validator `json:"validators"`
 }
 
-func NewConfigData(nowProposer string, blockHeight int64, tokensCount int64, tax float64, version string, validators []memory.Validator) *ConfigData {
+func NewConfigData(nowProposer string, blockHeight int64, tokensCount int64, tax float64, version string) *ConfigData {
 	return &ConfigData{
 		NowProposer: nowProposer,
 		BlockHeight: blockHeight,
 		TokensCount: tokensCount,
 		Tax:         tax,
 		Version:     version,
-		Validators:  validators,
 	}
 }
 
@@ -38,7 +36,6 @@ func (api *Api) NodeConfig(args *NodeConfigArgs, result *string) error {
 		storage.GetTokenId(),
 		config.Tax,
 		config.Version,
-		memory.ValidatorsMemory,
 	))
 	if err != nil {
 		log.Println("Api node config error 1:", err)
