@@ -5,12 +5,33 @@ import (
 	"fmt"
 	"log"
 	"node/config"
+	"node/crypt"
 	"node/memory"
 	"node/storage"
+	"node/websocket"
 )
 
 func SendTx(tx []byte) {
-	requestsSender("NewTx", tx)
+	message, _ := json.Marshal(websocket.RequestSign{
+		SenderIp: config.Ip,
+		Sign:     crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+		Address:  config.NodeNdAddress,
+		Data:     tx,
+	})
+
+	requestsSender("NewTx", message)
+}
+
+func SendVersion(version []byte) {
+	message, _ := json.Marshal(websocket.RequestSign{
+		SenderIp: config.Ip,
+		Sign:     crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+		Address:  config.NodeNdAddress,
+		Data:     version,
+	})
+
+	log.Println("Check Version")
+	requestsSender("GetVersion", message)
 }
 
 func SendBlockVote(vote []byte) {

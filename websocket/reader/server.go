@@ -3,7 +3,9 @@ package reader
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/gorilla/websocket"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
 	"net/http"
 	"node/apparel"
@@ -15,7 +17,9 @@ import (
 	"node/storage"
 	"node/storage/deep_actions"
 	"node/storage/validation"
+	websocket_my "node/websocket"
 	"node/websocket/sender"
+	"os"
 )
 
 func Init() {
@@ -51,6 +55,12 @@ func RequestsReader(w http.ResponseWriter, r *http.Request) {
 			break
 		case "NewTx":
 			newTx(body)
+			break
+		case "GetVersion":
+			if err := getVersion(body); err != nil {
+				log.Println(err)
+			}
+
 			break
 		case "DownloadBlocks":
 			downloadBlocks(body)
@@ -125,6 +135,28 @@ func newTx(body string) {
 			storage.TransactionsMemory = append(storage.TransactionsMemory, t)
 		}
 	}
+}
+
+func getVersion(body string) error {
+	r := websocket_my.RequestSign{}
+	err := json.Unmarshal([]byte(body), &r)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Websocket server reader get config error 1: %v", err))
+	}
+
+	pubicKey, _ := crypt.PublicKeyFromAddress(r.Address)
+	if !crypt.VerifySign(pubicKey, []byte(r.Address), r.Sign) {
+		return errors.New(fmt.Sprintf("Websocket server reader new tx error 2: %v", err))
+	}
+
+	if r.Data != nil {
+		if string(r.Data) != config.Version {
+			log.Println("Version error")
+			os.Exit(1)
+		}
+	}
+
+	return nil
 }
 
 func validateTx(transaction deep_actions.Tx) error {

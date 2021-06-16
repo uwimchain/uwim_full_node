@@ -20,6 +20,7 @@ func waitForSignal() {
 }
 
 func Init() {
+
 	config.Init()
 	memory.Init()
 	storage.Init()

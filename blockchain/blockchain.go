@@ -27,7 +27,7 @@ var NodeOperationMemory NodeOperation
 
 func Init() {
 	log.Println("Block generator started.")
-
+	sender.SendVersion(nil)
 	sender.DownloadBlocksFromNodes()
 
 	for {
@@ -53,6 +53,8 @@ func Worker() {
 			switch j {
 			case config.BlockWriteTime[0]:
 				if !memory.IsValidator() {
+					sender.SendVersion(nil)
+
 					if !memory.DownloadBlocks {
 						sender.DownloadBlocksFromNodes()
 					}

@@ -112,9 +112,7 @@ func GetJsonData(jsonFile string) []byte {
 
 func DownloadValidators() {
 	validators := GetValidators()
-	//if validators != nil {
 	if ValidatorsMemory = validators; ValidatorsMemory == nil {
-		//log.Println("Error: empty validators list.")
 		if config.JsonDownloadIp == "" {
 			ValidatorsMemory = nil
 			ValidatorsMemory = append(ValidatorsMemory, Validator{
@@ -123,11 +121,8 @@ func DownloadValidators() {
 				Ip:      config.FirstPeerIp,
 			})
 
-			jsonString, _ := json.Marshal(ValidatorsMemory)
-			log.Println(string(jsonString))
 		}
 	}
-	//}
 }
 
 func IsValidator() bool {
