@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/config"
@@ -14,41 +15,29 @@ import (
 
 // Explorer method arguments
 type ExplorerArgs struct {
-	Start  int64  `json:"start"`
-	Limit  int64  `json:"limit"`
-	Side   bool   `json:"side"`
-	Option string `json:"option"`
-}
+	// blocks
+	BlocksStart int64 `json:"blocks_start"`
+	BlocksLimit int64 `json:"blocks_limit"`
+	BlocksLast  bool  `json:"blocks_last"`
 
-type Explorer struct {
-	Blocks       string `json:"blocks"`
-	Transactions string `json:"transactions"`
-	Tokens       string `json:"tokens"`
-}
-
-func NewExplorer(blocks string, transactions string, tokens string) *Explorer {
-	return &Explorer{Blocks: blocks, Transactions: transactions, Tokens: tokens}
+	// tokens
+	TokensStart int64 `json:"tokens_start"`
+	TokensLimit int64 `json:"tokens_limit"`
 }
 
 func (api *Api) Explorer(args *ExplorerArgs, result *string) error {
+	explorer := make(map[string]interface{})
+	explorer["blocks"] = explorerBlocks(args.BlocksStart, args.BlocksLimit, args.BlocksLast)
+	explorer["tokens"], _ = explorerTokens(args.TokensStart, args.TokensLimit)
+	explorer["transactions"] = storage.TransactionsMemory
 
-	if args.Start > config.BlockHeight {
-		return errors.New("Starting point is greater than the current block height")
+	explorerJson, err := json.Marshal(explorer)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Api explorer error 2: %v", err))
 	}
 
-	if args.Limit > config.ExplorerLimit {
-		args.Limit = config.ExplorerLimit
-	}
-
-	jsonString, _ := json.Marshal(NewExplorer(explorerBlocks(args), explorerTransactions(), explorerTokens()))
-	*result = string(jsonString)
-
+	*result = string(explorerJson)
 	return nil
-}
-
-func explorerTransactions() string {
-	transactions, _ := json.Marshal(storage.TransactionsMemory)
-	return string(transactions)
 }
 
 type Block struct {
@@ -58,46 +47,31 @@ type Block struct {
 	Txs    []deep_actions.Tx   `json:"txs"`
 }
 
-func explorerBlocks(args *ExplorerArgs) string {
-	switch args.Option {
-	case "last":
-		start := config.BlockHeight - config.ExplorerLimit
+func explorerBlocks(start, limit int64, last bool) interface{} {
+	if last {
+		limit = config.BlockHeight
+		start = limit - 30
 		if start <= 0 {
 			start = 1
 		}
-		return getBlocks(start, config.BlockHeight, true)
-	default:
-		if args.Start == 0 {
-			args.Start = 1
-		}
-		return getBlocks(args.Start, args.Limit, args.Side)
-	}
-}
-
-func getBlocks(start int64, limit int64, side bool) string {
-	var rows []leveldb.Row
-
-	if side {
-		for i := start; i <= limit; i++ {
-			if row := leveldb.ChainDB.Get(strconv.FormatInt(i, 10)); row.Value != "" {
-				rows = append(rows, row)
-			}
-		}
 	} else {
-		for i := start; i >= start-limit; i-- {
-			if row := leveldb.ChainDB.Get(strconv.FormatInt(i, 10)); row.Value != "" {
-				rows = append(rows, row)
-			}
+		if limit > 30 {
+			limit = 30
+		}
+
+		if start >= limit {
+			start = limit - 30
+		}
+
+		if start <= 0 {
+			start = 1
 		}
 	}
-
-	sort.Slice(rows, func(i, j int) bool {
-		return apparel.ParseInt64(rows[i].Key) > apparel.ParseInt64(rows[j].Key)
-	})
 
 	var blocks []Block
-	for _, row := range rows {
+	for i := start; i <= limit; i++ {
 		block := Block{}
+		row := leveldb.ChainDB.Get(strconv.FormatInt(i, 10))
 		err := json.Unmarshal([]byte(row.Value), &block)
 		if err == nil {
 			block.Height = apparel.ParseInt64(row.Key)
@@ -105,10 +79,20 @@ func getBlocks(start int64, limit int64, side bool) string {
 		}
 	}
 
-	jsonString, _ := json.Marshal(blocks)
-	return string(jsonString)
+	if blocks != nil {
+		sort.Slice(blocks, func(i, j int) bool {
+			return blocks[i].Height > blocks[j].Height
+		})
+	}
+
+	return blocks
 }
 
-func explorerTokens() string {
-	return storage.GetTokens()
+func explorerTokens(start, limit int64) (interface{}, error) {
+	tokens, err := storage.GetTokens(start, limit)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("erorr 1: %v", err))
+	}
+
+	return tokens, nil
 }

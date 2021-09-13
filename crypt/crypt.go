@@ -11,14 +11,26 @@ import (
 )
 
 func IsAddressSmartContract(address string) bool {
+	if len(address) != 61 {
+		return false
+	}
+
 	return strings.HasPrefix(address, metrics.SmartContractPrefix)
 }
 
 func IsAddressUw(address string) bool {
+	if len(address) != 61 {
+		return false
+	}
+
 	return strings.HasPrefix(address, metrics.AddressPrefix)
 }
 
 func IsAddressNode(address string) bool {
+	if len(address) != 61 {
+		return false
+	}
+
 	return strings.HasPrefix(address, metrics.NodePrefix)
 }
 

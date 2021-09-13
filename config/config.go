@@ -19,12 +19,11 @@ var (
 	GenesisAddress          = "uw194sxltwdyyyuznj8536h3c5hep8s4wqtdcqd9nm0w73ju4nq9nkq26fjyz"
 	GenesisSecretKey        = []byte{21, 26, 239, 254, 223, 88, 200, 82, 118, 174, 63, 112, 154, 32, 83, 19, 203, 254, 207, 252, 206, 228, 78, 210, 146, 83, 50, 50, 139, 1, 50, 131, 45, 96, 111, 173, 205, 33, 9, 193, 78, 71, 164, 117, 120, 226, 151, 200, 79, 10, 184, 11, 110, 0, 210, 207, 111, 119, 163, 46,
 		86, 96, 44, 236}
-	BlockWriteTime                 = []int64{1, 11, 40, 51}
-	Tax                    float64 = 0.001
-	StorageMemoryLifeIter  int64   = 30       // blocks
-	MaxStorageMemory       int64   = 50       // transactions
-	RequestsMemoryLifeTime int64   = 60       // seconds
-	Version                string  = "v1.4.4" // build version
+	BlockWriteTime                = []int64{1, 11, 40, 51}
+	Tax                   float64 = 0.001
+	StorageMemoryLifeIter int64   = 30       // blocks
+	MaxStorageMemory      int64   = 50       // transactions
+	Version               string  = "v1.5.2" // build version
 
 	// Reward config
 	RewardCoefficientStage1 float64 = 1.038107 / ((60 * 60 * 24 / 6) / float64(CalculateBlockWriteTime()))
@@ -33,7 +32,7 @@ var (
 	RewardTokenLabel        string  = "uwm"
 	BaseToken               string  = "uwm"
 
-	// Json Download for validators only
+	// Json Download
 	JsonDownloadIp = ""
 
 	// First peer data for not validators only
@@ -42,8 +41,9 @@ var (
 	FirstPeerAddress string = "nd12l5h6aaza5mn39ayg79g29n75esp0wwjsuf2zg293gdpuc5rrmpq42mpa0"
 
 	// API config
-	ExplorerLimit            int64 = 30 // block limit for output to explorer
 	BalanceTransactionsLimit int64 = 30 // transactions limit for output to wallet
+	RequestsMemoryLifeTime   int64 = 1  // seconds
+	RequestsMemoryCount      int64 = 5  // requests in memory count
 
 	// Token config
 	NewTokenCost1             float64 = 1
@@ -65,6 +65,18 @@ var (
 	DelegateScAddress   string = "sc12l5h6aaza5mn39ayg79g29n75esp0wwjsuf2zg293gdpuc5rrmpq8k8vxh"
 	DelegateBlockHeight int64  = 6
 	DelegateToken       string = "uwm"
+
+	// Holder sc config
+	HolderScAddress string  = "sc1cq56xp5hfks3slpcneaty2r2mnjk28q6ea7e7dw6s7zcl96j2scq4vvfkf"
+	HolderAddCost   float64 = 0.1
+	HolderGetCost   float64 = 0.01
+
+	// Vote sc config
+	VoteScAddress               string = "sc1ksu3zurrs7mgl844wx6unchzwpuhqlhvn9hh2zcp2xvs46g0sx6qh2pq7r"
+	VoteSuperAddress            string = "uw128za3mp36cdzwp5ttr268zx5tmvrs40h639qljystxhc0nsy9zkqxyclqy"
+	VoteAnswerOptionDefaultCost        = 0.5 // uwm
+	MaxVoteMemory               int    = 10
+	MaxVoteAnswerOptions        int    = 10
 )
 
 // function for calculating block write time

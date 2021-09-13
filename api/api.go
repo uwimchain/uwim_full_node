@@ -35,8 +35,16 @@ func ServerStart() {
 
 	defer listener.Close()
 
+	go cleanRequestsMemory()
+
 	_ = http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api" {
+
+			// Ограничение количества запросов к апи
+			if requestInRequestsMemory(r.Header, r.Method) {
+				http.Error(setHeaders(w, 0), "Too many requests. Try later.", 429)
+				return
+			}
 
 			if err := server.ServeRequest(jsonrpc.NewServerCodec(&HttpConn{r.Body, setHeaders(w, 0)})); err != nil {
 				log.Printf("Error while serving JSON request: %v", err)

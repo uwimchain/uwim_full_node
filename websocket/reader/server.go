@@ -8,18 +8,22 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
 	"net/http"
-	"node/apparel"
 	"node/blockchain"
+	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/delegate_con"
+	"node/blockchain/contracts/donate_token_con"
+	"node/blockchain/contracts/my_token_con"
+	"node/blockchain/contracts/trade_token_con"
 	"node/config"
 	"node/crypt"
 	"node/memory"
+	"node/metrics"
 	"node/storage"
 	"node/storage/deep_actions"
 	"node/storage/validation"
-	websocket_my "node/websocket"
+	websocket2 "node/websocket"
 	"node/websocket/sender"
-	"os"
+	"strconv"
 )
 
 func Init() {
@@ -48,13 +52,19 @@ func RequestsReader(w http.ResponseWriter, r *http.Request) {
 		dataType, body := decodeMessage(message)
 		switch dataType {
 		case "NewBlock":
-			newBlock(body)
+			if err := newBlock(body); err != nil {
+				log.Println(err)
+			}
+
 			break
 		case "BlockVote":
 			blockVote(body)
 			break
 		case "NewTx":
-			newTx(body)
+			if err := newTx(body); err != nil {
+				log.Println(err)
+			}
+
 			break
 		case "GetVersion":
 			if err := getVersion(body); err != nil {
@@ -62,11 +72,38 @@ func RequestsReader(w http.ResponseWriter, r *http.Request) {
 			}
 
 			break
+		case "GetProposer":
+			var requestSign websocket2.RequestSign
+			err := json.Unmarshal([]byte(body), &requestSign)
+			if err != nil {
+				log.Println("Websocket reader server request reader error 3: ", err)
+				break
+			}
+
+			sender.SendProposer(requestSign.SenderIp)
+
+			break
+		case "Proposer":
+			var requestSign websocket2.RequestSign
+			err := json.Unmarshal([]byte(body), &requestSign)
+			if err != nil {
+				log.Println("Websocket reader server request reader error 4: ", err)
+				break
+			}
+
+			storage.BlockMemory = storage.Block{}
+			if !crypt.IsAddressNode(string(requestSign.Data)) || !memory.IsNodeValidator(string(requestSign.Data)) {
+				memory.Proposer = string(requestSign.Data)
+			}
+
+			break
 		case "DownloadBlocks":
 			downloadBlocks(body)
+
 			break
 		default:
-			log.Println("Websocket reader server request reader error 3: incorrect request data type")
+			log.Println("Websocket reader server request reader error 5: incorrect request data type")
+
 			break
 		}
 		break
@@ -82,26 +119,52 @@ func decodeMessage(message []byte) (string, string) {
 	return request.DataType, request.Body
 }
 
-func newBlock(body string) {
-	if memory.IsValidator() {
-		if blockchain.NodeOperationMemory.Operation == 1 {
-			if !memory.IsNodeProposer() {
-				block := storage.Block{}
-				err := json.Unmarshal([]byte(body), &block)
-				if err != nil {
-					log.Println("Websocket server reader new block error:", err)
-				}
-				storage.BlockMemory = block
-				log.Println("BLock height:", config.BlockHeight)
-			}
+func newBlock(body string) error {
+	if !memory.IsValidator() {
+		return errors.New("Websocket server reader new block error 1: this node is not validator")
+	}
 
-			if storage.BlockMemory.Height != config.BlockHeight {
-				if storage.BlockMemory.Height > config.BlockHeight {
-					sender.DownloadBlocksFromNodes()
-				}
-			}
+	if blockchain.NodeOperationMemory.Operation != 1 {
+		return errors.New("Websocket server reader new block error 2: blockchain operation memory error")
+	}
+
+	//if memory.IsNodeProposer() {
+	//	return errors.New("Websocket server reader new block error 3: this node is proposer")
+	//}
+
+	r := websocket2.RequestSign{}
+	b := storage.Block{}
+
+	err := json.Unmarshal([]byte(body), &r)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Websocket server reader new block error 4: %v", err))
+	}
+
+	pubicKey, _ := crypt.PublicKeyFromAddress(r.Address)
+	if !crypt.VerifySign(pubicKey, []byte(r.Address), r.Sign) {
+		return errors.New(fmt.Sprintf("Websocket server reader new block error 5: %v", err))
+	}
+
+	if err := json.Unmarshal(r.Data, &b); err != nil {
+		return errors.New(fmt.Sprintf("Websocket server reader new block error 6: %v", err))
+	}
+
+	if b.Proposer != memory.Proposer {
+
+		sender.GetProposer()
+		return errors.New("Websocket server reader new block error 3: this node is not a proposer")
+	}
+
+	storage.BlockMemory = b
+	log.Println("BLock height:", config.BlockHeight)
+
+	if storage.BlockMemory.Height != config.BlockHeight {
+		if storage.BlockMemory.Height > config.BlockHeight {
+			sender.DownloadBlocksFromNodes()
 		}
 	}
+
+	return nil
 }
 
 func blockVote(body string) {
@@ -123,22 +186,43 @@ func blockVote(body string) {
 	}
 }
 
-func newTx(body string) {
+func newTx(body string) error {
 	t := deep_actions.Tx{}
-	err := json.Unmarshal([]byte(body), &t)
+	r := websocket2.RequestSign{}
+
+	err := json.Unmarshal([]byte(body), &r)
 	if err != nil {
-		log.Println("Websocket server reader new tx error 1:", err)
-	} else {
-		if err := validateTx(t); err != nil {
-			log.Println("Websocket server reader new tx error 2:", err)
-		} else {
-			storage.TransactionsMemory = append(storage.TransactionsMemory, t)
-		}
+		return errors.New(fmt.Sprintf("Websocket server reader new tx error 1: %v", err))
 	}
+
+	pubicKey, _ := crypt.PublicKeyFromAddress(r.Address)
+	if !crypt.VerifySign(pubicKey, []byte(r.Address), r.Sign) {
+		return errors.New(fmt.Sprintf("Websocket server reader new tx error 2: %v", err))
+	}
+
+	if err := json.Unmarshal(r.Data, &t); err != nil {
+		return errors.New(fmt.Sprintf("Websocket server reader new tx error 3: %v", err))
+	}
+
+	if err := validateTx(t); err != nil {
+		return errors.New(fmt.Sprintf("Websocket server reader new tx error 4: %v", err))
+	}
+
+	if t.Comment.Title == "refund_transaction" {
+		log.Println("GG REFUND TRANSACTION")
+	}
+
+	storage.TransactionsMemory = append(storage.TransactionsMemory, t)
+	//if !memory.IsNodeValidator(r.SenderIp, r.Address) {
+	if !memory.IsNodeValidator(r.Address) {
+		sender.SendTx(r.Data)
+	}
+
+	return nil
 }
 
 func getVersion(body string) error {
-	r := websocket_my.RequestSign{}
+	r := websocket2.RequestSign{}
 	err := json.Unmarshal([]byte(body), &r)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Websocket server reader get config error 1: %v", err))
@@ -149,11 +233,8 @@ func getVersion(body string) error {
 		return errors.New(fmt.Sprintf("Websocket server reader new tx error 2: %v", err))
 	}
 
-	if r.Data != nil {
-		if string(r.Data) != config.Version {
-			log.Println("Version error")
-			os.Exit(1)
-		}
+	if r.Data == nil {
+		sender.SendVersion([]byte(config.Version), r.SenderIp)
 	}
 
 	return nil
@@ -238,8 +319,8 @@ func downloadBlocks(body string) {
 								case "delegate_contract_transaction":
 									{
 										if t.To == config.DelegateScAddress {
-											timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)
-											err := delegate_con.Delegate(t.From, t.Amount, timestampUnix)
+											timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
+											err := delegate_con.Delegate(t.From, t.Amount, timestamp)
 											if err != nil {
 												log.Println("Deep actions download new tx delegate contract transaction error 1:", err)
 											}
@@ -248,25 +329,255 @@ func downloadBlocks(body string) {
 										}
 										break
 									}
+								case "my_token_contract_confirmation_transaction":
+									{
+										confirmationArgs, err := my_token_con.NewConfirmationArgs(t.To, t.From, t.Height, t.HashTx)
+										if err != nil {
+											log.Println("Deep actions new tx confirmation transaction error 1:", err)
+											break
+										}
+
+										err = my_token_con.Confirmation(confirmationArgs)
+										if err != nil {
+											log.Println("Deep actions new tx confirmation transaction error 2:", err)
+										}
+
+										break
+									}
+								case "my_token_contract_get_percent_transaction":
+									{
+										getPercentAgs, err := my_token_con.NewGetPercentArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx)
+										if err != nil {
+											log.Println("Deep actions new tx my contract get percent transaction error 1:", err)
+											break
+										}
+
+										err = my_token_con.GetPercent(getPercentAgs)
+										if err != nil {
+											log.Println("Deep actions new tx my contract get percent transaction error 2:", err)
+										}
+
+										break
+									}
+								case "trade_token_contract_add_transaction":
+									{
+										err := trade_token_con.Add(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
+										if err != nil {
+											log.Println("Deep actions new tx trade contract add transaction error 1:", err)
+											break
+										}
+										break
+									}
+								case "trade_token_contract_swap_transaction":
+									{
+										err := trade_token_con.Swap(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
+										if err != nil {
+											log.Println("Deep actions new tx trade contract swap transaction error 1:", err)
+											break
+										}
+										break
+									}
+								case "trade_token_contract_get_liq_transaction":
+									{
+										err := trade_token_con.GetLiq(trade_token_con.NewGetArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx))
+										if err != nil {
+											log.Println("Deep actions new tx trade contract get transaction error 1:", err)
+											break
+										}
+										break
+									}
+								case "trade_token_contract_get_com_transaction":
+									{
+										err := trade_token_con.GetCom(trade_token_con.NewGetArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx))
+										if err != nil {
+											log.Println("Deep actions new tx trade contract get transaction error 1:", err)
+											break
+										}
+										break
+									}
+								case "trade_token_contract_fill_config_transaction":
+									{
+										var scAddressConfig trade_token_con.TradeConfig
+										err := json.Unmarshal(t.Comment.Data, &scAddressConfig)
+										if err != nil {
+											log.Println("Deep actions new tx trade contract fill config transaction error 1:", err)
+											break
+										}
+
+										err = trade_token_con.FillConfig(trade_token_con.NewFillConfigArgs(t.To, scAddressConfig.Commission))
+										if err != nil {
+											log.Println("Deep actions new tx trade contract fill config transaction error 2:", err)
+											break
+										}
+										break
+									}
+
 								}
+
 								break
 							}
 						case 2:
 							{
 								if t.Comment.Title == "delegate_reward_transaction" && t.To == config.DelegateScAddress {
-									timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)
-									_ = delegate_con.Bonus(t.Timestamp, timestampUnix)
+									/*timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)*/
+									timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
+									_ = delegate_con.Bonus(t.Timestamp, timestamp)
 								}
 								break
 							}
+						case 3:
+							switch t.Comment.Title {
+							case "change_token_standard_transaction":
+								token := storage.GetAddressToken(t.From)
+								if token.Id == 0 {
+									break
+								}
+
+								var standard int64 = 0
+								if token.StandardHistory != nil {
+									if len(token.StandardHistory) != 1 {
+										hash := token.StandardHistory[len(token.StandardHistory)-1].TxHash
+										if hash == "" {
+											log.Println("Deep actions new tx change token standard transaction error 1")
+											break
+										}
+
+										jsonString := storage.GetTxForHash(hash)
+										if jsonString == "" {
+											log.Println("Deep actions new tx change token standard transaction error 2")
+											break
+										}
+
+										tx := deep_actions.Tx{}
+										err := json.Unmarshal([]byte(jsonString), &tx)
+										if err != nil {
+											log.Println("Deep actions new tx change token standard transaction error 3:", err)
+											break
+										}
+
+										if tx.Comment.Title != "change_token_standard_transaction" {
+											log.Println("Deep actions new tx change token standard transaction error 4")
+											break
+										}
+
+										t := deep_actions.Token{}
+										err = json.Unmarshal(tx.Comment.Data, &t)
+										if err != nil {
+											log.Println("Deep actions new tx change token standard transaction error 5:", err)
+											break
+										}
+
+										standard = t.Standard
+
+										if standard == token.Standard {
+											hash := token.StandardHistory[len(token.StandardHistory)-2].TxHash
+											if hash == "" {
+												log.Println("Deep actions new tx change token standard transaction error 1")
+												break
+											}
+
+											jsonString := storage.GetTxForHash(hash)
+											if jsonString == "" {
+												log.Println("Deep actions new tx change token standard transaction error 2")
+												break
+											}
+
+											tx := deep_actions.Tx{}
+											err := json.Unmarshal([]byte(jsonString), &tx)
+											if err != nil {
+												log.Println("Deep actions new tx change token standard transaction error 3:", err)
+												break
+											}
+
+											if tx.Comment.Title != "change_token_standard_transaction" {
+												log.Println("Deep actions new tx change token standard transaction error 4")
+												break
+											}
+
+											t := deep_actions.Token{}
+											err = json.Unmarshal(tx.Comment.Data, &t)
+											if err != nil {
+												log.Println("Deep actions new tx change token standard transaction error 5:", err)
+												break
+											}
+
+											standard = t.Standard
+										}
+									}
+								}
+
+								publicKey, err := crypt.PublicKeyFromAddress(t.From)
+								if err != nil {
+									log.Println("Deep actions new tx change token standard transaction error 6:", err)
+									break
+								}
+
+								scAddress := crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
+								switch standard {
+								case 0:
+									my_token_con.ChangeStandard(scAddress)
+									break
+								case 1:
+									err := donate_token_con.ChangeStandard(scAddress)
+									if err != nil {
+										log.Println("Deep actions new tx change token standard transaction error 7:", err)
+										break
+									}
+									break
+								case 4:
+									err := business_token_con.ChangeStandard(scAddress)
+									if err != nil {
+										log.Println("Deep actions new tx change token standard transaction error 8:", err)
+										break
+									}
+									break
+								}
+
+								if token.Standard == 5 {
+									err := trade_token_con.AddToken(scAddress)
+									if err != nil {
+										log.Println("Deep actions new tx change token standard transaction error 9:", err)
+									}
+								}
+								break
+
+							case "fill_token_standard_card_transaction":
+								token := storage.GetAddressToken(t.From)
+								if token.Label == "" {
+									break
+								}
+
+								switch token.Standard {
+								case 4:
+									publicKey, err := crypt.PublicKeyFromAddress(t.From)
+									if err != nil {
+										log.Println("Deep actions new tx fill token card error 4:", err)
+										break
+									}
+
+									scAddress := crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
+									err = business_token_con.UpdatePartners(scAddress)
+									if err != nil {
+										log.Println("Business token contract new tx fill token card error 5:", err)
+										break
+									}
+
+									break
+								}
+
+								break
+							}
+
+							break
 						case 5:
 							{
 								switch t.Comment.Title {
 								case "undelegate_contract_transaction":
 									{
 										if t.From == config.DelegateScAddress {
-											timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)
-											err := delegate_con.UnDelegate(t.To, t.Amount, timestampUnix)
+											/*timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)*/
+											timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
+											err := delegate_con.UnDelegate(t.To, t.Amount, timestamp)
 											if err != nil {
 												log.Println("Deep actions download new tx undelegate contract transaction error 1:", err)
 											}
@@ -281,30 +592,6 @@ func downloadBlocks(body string) {
 						}
 					}
 				}
-
-				// Создание смарт-контрактов при подкачке
-				//for _, b := range blocks {
-				//	for _, t := range b.Txs {
-				//		if crypt.IsAddressSmartContract(t.To) && t.Type == 4 {
-				//			contract := deep_actions.Contract{}
-				//			err := json.Unmarshal(t.Comment.Data, &contract)
-				//			if err != nil {
-				//				log.Println(err)
-				//			} else {
-				//				testCon := test_con.TestContract{}
-				//				err := json.Unmarshal(contract.Data, &testCon)
-				//				if err != nil {
-				//					log.Println(err)
-				//				} else {
-				//					err := test_con.AddTestSmartContract(t.To, testCon.To, t.TokenLabel)
-				//					if err != nil {
-				//						log.Println(err)
-				//					}
-				//				}
-				//			}
-				//		}
-				//	}
-				//}
 			}
 			log.Println("Height after receiving blocks:", config.BlockHeight)
 		}

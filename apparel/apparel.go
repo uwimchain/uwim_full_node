@@ -1,9 +1,13 @@
 package apparel
 
 import (
+	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
 	"math/rand"
+	"node/config"
 	"node/metrics"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -13,19 +17,10 @@ func Timestamp() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func UnixFromStringTimestamp(timestamp string) int64 {
-	timestampUnix, err := time.Parse(time.RFC3339Nano, timestamp)
-	if err != nil {
-		log.Println("Timestamp Unix error:", err)
-	}
-
-	return timestampUnix.UnixNano()
-}
-
 func TimestampUnix() int64 {
 	timestamp, err := time.Parse(time.RFC3339Nano, time.Now().Format(time.RFC3339Nano))
 	if err != nil {
-		log.Println("Timestamp Unix error:", err)
+		log.Println("Timestamp unix error:", err)
 	}
 
 	return timestamp.UnixNano()
@@ -35,16 +30,17 @@ func UnixToString(unixTime int64) string {
 	return time.Unix(0, unixTime).Format(time.RFC3339Nano)
 }
 
-func CalcTax(tax float64) float64 {
-	if tax > metrics.MaxTax {
+func CalcTax(amount float64) float64 {
+	amount = amount * config.TaxConversion * config.Tax
+	if amount > metrics.MaxTax {
 		return metrics.MaxTax
 	}
 
-	if tax < metrics.MinTax {
+	if amount < metrics.MinTax {
 		return metrics.MinTax
 	}
 
-	return tax
+	return amount
 }
 
 func ParseInt64(stringForParsing string) int64 {
@@ -56,13 +52,15 @@ func ParseInt64(stringForParsing string) int64 {
 	return result
 }
 
-func GetNonce(timestamp string) int64 {
-	parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
+func GetNonce(timestampD string) int64 {
+	//parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
+	timestamp, err := strconv.ParseInt(timestampD, 10, 64)
 	if err != nil {
-		log.Println("Get Nonce error:", err)
+		log.Println("Get nonce error:", err)
 	}
 
-	nonce := parsedTime.UnixNano() + rand.Int63()
+	//nonce := parsedTime.UnixNano() + rand.Int63()
+	nonce := timestamp + rand.Int63()
 	if nonce < 0 {
 		nonce *= -1
 	}
@@ -82,5 +80,72 @@ func SearchInArray(arr []int64, find int64) bool {
 	}
 
 	return false
+}
 
+func Round(number float64) (float64, error) {
+	if number < 0 {
+
+		return 0, errors.New("error 1: round number less than zero")
+	}
+
+	roundNumber, err := strconv.ParseFloat(fmt.Sprintf("%.12f", number), 64)
+	if err != nil {
+		return 0, errors.New(fmt.Sprintf("error 2: %v", err))
+	}
+
+	return roundNumber, nil
+}
+
+func ConvertInterfaceToFloat64(float64_ interface{}) float64 {
+	if float64_ == nil {
+		return 0
+	}
+	var (
+		float64Type reflect.Type = reflect.TypeOf(float64(0))
+		result      float64      = 0
+	)
+
+	v2 := reflect.ValueOf(float64_)
+	v2 = reflect.Indirect(v2)
+	if v2.Type().ConvertibleTo(float64Type) {
+		result = v2.Convert(float64Type).Float()
+	}
+
+	return result
+}
+
+func ConvertInterfaceToInt64(int64_ interface{}) int64 {
+	if int64_ == nil {
+		return 0
+	}
+	var (
+		Int64Type reflect.Type = reflect.TypeOf(int64(0))
+		result    int64        = 0
+	)
+
+	v2 := reflect.ValueOf(int64_)
+	v2 = reflect.Indirect(v2)
+	if v2.Type().ConvertibleTo(Int64Type) {
+		result = v2.Convert(Int64Type).Int()
+	}
+
+	return result
+}
+
+func ConvertInterfaceToString(string_ interface{}) string {
+	if string_ == nil {
+		return ""
+	}
+	var (
+		stringType reflect.Type = reflect.TypeOf(string(""))
+		result     string       = ""
+	)
+
+	v2 := reflect.ValueOf(string_)
+	v2 = reflect.Indirect(v2)
+	if v2.Type().ConvertibleTo(stringType) {
+		result = v2.Convert(stringType).String()
+	}
+
+	return result
 }

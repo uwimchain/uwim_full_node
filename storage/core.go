@@ -12,6 +12,7 @@ import (
 	"node/metrics"
 	"node/storage/deep_actions"
 	"node/storage/leveldb"
+	"sort"
 	"strconv"
 )
 
@@ -27,14 +28,17 @@ func Init() {
 	BlockHeightUpdate()
 }
 
+// Block
+// Функция для записи нового блока и выполнения его транзаций
 func AddBlock() {
 
 	block := deep_actions.Chain{}
 
-	for _, t := range BlockMemory.Body {
-		jsonForHash, _ := json.Marshal(t)
-		t.HashTx = crypt.GetHash(jsonForHash)
-		block.Txs = append(block.Txs, t)
+	for idx := range BlockMemory.Body {
+		jsonForHash, _ := json.Marshal(BlockMemory.Body[idx])
+		//i.HashTx = crypt.GetHash(jsonForHash)
+		BlockMemory.Body[idx].HashTx = crypt.GetHash(jsonForHash)
+		block.Txs = append(block.Txs, BlockMemory.Body[idx])
 	}
 
 	votes := getBlockVotes()
@@ -72,6 +76,7 @@ func AddBlock() {
 					}
 				}
 			} else {
+				t.Amount, _ = apparel.Round(t.Amount)
 				NewTx(
 					t.Type,
 					t.Nonce,
@@ -117,22 +122,23 @@ func ConfigUpdate(parameter string, value string) {
 	conf.ConfigUpdate(parameter, value)
 }
 
+// Функция для записи нулевого блока во время старта системы
 func ZeroBlock() {
 	if memory.IsMainNode() && config.BlockHeight == 0 {
 		if !CheckBlock(0) {
 			var body []deep_actions.Tx
 
-			timestamp := apparel.Timestamp()
+			timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
 			GenesisTransaction := deep_actions.NewTx(
 				1,
-				apparel.GetNonce(timestamp),
+				apparel.GetNonce(timestampD),
 				"",
 				0,
 				"",
 				config.GenesisAddress,
 				1000000000,
 				"uwm",
-				timestamp,
+				timestampD,
 				0,
 				nil,
 				*deep_actions.NewComment(
@@ -146,17 +152,17 @@ func ZeroBlock() {
 			}
 			GenesisTransaction.HashTx = crypt.GetHash(jsonForHash)
 
-			timestamp = apparel.Timestamp()
+			timestampD = strconv.FormatInt(apparel.TimestampUnix(), 10)
 			MainTransaction := deep_actions.NewTx(
 				1,
-				apparel.GetNonce(apparel.Timestamp()),
+				apparel.GetNonce(timestampD),
 				"",
 				0,
 				config.GenesisAddress,
 				config.NodeNdAddress,
 				326348839,
 				"uwm",
-				timestamp,
+				timestampD,
 				0,
 				crypt.SignMessageWithSecretKey(
 					config.GenesisSecretKey,
@@ -173,7 +179,7 @@ func ZeroBlock() {
 			}
 			MainTransaction.HashTx = crypt.GetHash(jsonForHash)
 
-			timestamp = apparel.Timestamp()
+			timestampD = strconv.FormatInt(apparel.TimestampUnix(), 10)
 			jsonString, err := json.Marshal(deep_actions.NewToken(
 				1,
 				0,
@@ -192,14 +198,14 @@ func ZeroBlock() {
 			}
 			ZeroTokenTransaction := deep_actions.NewTx(
 				3,
-				apparel.GetNonce(timestamp),
+				apparel.GetNonce(timestampD),
 				"",
 				0,
 				config.GenesisAddress,
 				config.NodeNdAddress,
 				1,
 				"uwm",
-				timestamp,
+				timestampD,
 				0,
 				crypt.SignMessageWithSecretKey(
 					config.GenesisSecretKey,
@@ -220,7 +226,7 @@ func ZeroBlock() {
 			BlockMemory = *NewBlock(
 				0,
 				"",
-				apparel.Timestamp(),
+				strconv.FormatInt(apparel.TimestampUnix(), 10),
 				config.NodeNdAddress,
 				crypt.SignMessageWithSecretKey(
 					config.NodeSecretKey,
@@ -243,6 +249,7 @@ func CheckBlock(height int64) bool {
 	return leveldb.ChainDB.Has(strconv.FormatInt(height, 10))
 }
 
+// Функция для записи подкаченных блоков во время старта ноды
 func NewBlocksForStart(blocks []deep_actions.Chain) {
 	if memory.DownloadBlocks {
 
@@ -251,6 +258,7 @@ func NewBlocksForStart(blocks []deep_actions.Chain) {
 		} else {
 
 			for _, block := range blocks {
+
 				// add block to database
 				err := c.NewChain(block)
 				if err != nil {
@@ -291,11 +299,6 @@ func NewBlocksForStart(blocks []deep_actions.Chain) {
 					if check != "" {
 						ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
 						config.BlockHeight++
-
-						if config.BlockHeight == 102584 {
-							ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
-							config.BlockHeight++
-						}
 					} else {
 						log.Println("Storage core NewBlocksForStart error: block don`t written")
 					}
@@ -309,6 +312,7 @@ func NewBlocksForStart(blocks []deep_actions.Chain) {
 	}
 }
 
+// Функция записи транзакции в базу данных, а также выполнение действий транзакции в зависимости от её типа
 func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from string, to string, amount float64, tokenLabel string, timestamp string, tax float64, signature []byte, proposer string, comment deep_actions.Comment) {
 	switch transactionType {
 	case 1:
@@ -331,9 +335,13 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 			switch comment.Title {
 			case "create_token_transaction":
 				{
+					if comment.Data == nil {
+						log.Println("Deep actions new tx error 1: comment data is null")
+						return
+					}
 					err := json.Unmarshal(comment.Data, &t)
 					if err != nil {
-						log.Println("Deep actions new tx error 1:", err)
+						log.Println("Deep actions new tx error 11:", err)
 						return
 					} else {
 						t.NewToken(t.Type, t.Label, t.Name, t.Proposer, t.Signature, t.Emission, t.Timestamp)
@@ -382,17 +390,21 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 	}
 
 	if from != "" && to != "" {
-		a.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
+		amount, _ = apparel.Round(amount)
+		tax, _ = apparel.Round(tax)
+		if amount != 0 {
+			a.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
 
-		if tax != 0 {
-			a.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, tax, timestamp), false)
-
-			if !memory.DownloadBlocks {
-				a.UpdateBalance(proposer, *deep_actions.NewBalance(tokenLabel, tax, timestamp), true)
-			}
+			a.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
 		}
 
-		a.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
+		if tax != 0 {
+			a.UpdateBalance(from, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), false)
+
+			if !memory.DownloadBlocks {
+				a.UpdateBalance(proposer, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), true)
+			}
+		}
 
 		transaction := deep_actions.NewTx(transactionType, nonce, hashTx, height, from, to, amount, tokenLabel, timestamp, tax, signature, comment)
 
@@ -415,6 +427,12 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 }
 
 func validateDownloadBlocks(blocks []deep_actions.Chain) error {
+	//for _, block := range blocks {
+	//	if !validateDownloadBlockTxs(block.Txs) {
+	//		return errors.New("this transaction already exists")
+	//	}
+	//}
+
 	return nil
 }
 
@@ -428,6 +446,7 @@ func validateDownloadBlockTxs(txs []deep_actions.Tx) bool {
 	return true
 }
 
+// Функция для получения хэша блока по высоте
 func GetBlockHash(height int64) string {
 	Chain := c.GetChain(strconv.FormatInt(height, 10))
 	Hash := ""
@@ -442,11 +461,13 @@ func GetBlockHash(height int64) string {
 	return Hash
 }
 
+// Функция для получения блока по высоте
 func GetBLockForHeight(height int64) string {
 	return c.GetChain(strconv.FormatInt(height, 10))
 
 }
 
+// Функция для получения голосов записываемого блока
 func getBlockVotes() []deep_actions.Vote {
 	var result []deep_actions.Vote
 	for _, vote := range BlockMemory.Votes {
@@ -456,6 +477,7 @@ func getBlockVotes() []deep_actions.Vote {
 	return result
 }
 
+// Функция для получения хэша только что записанного блока
 func GetPrevBlockHash() string {
 	prevChainKey, _ := strconv.ParseInt(conf.GetConfig("block_height"), 10, 64)
 	prevChain := c.GetChain(strconv.FormatInt(prevChainKey-1, 10))
@@ -472,6 +494,8 @@ func GetPrevBlockHash() string {
 	return prevHash
 }
 
+// Address
+// Функция для получения баланса аккаунта по адресу
 func GetBalance(address string) []deep_actions.Balance {
 	row := a.GetAddress(address)
 	Addr := deep_actions.Address{}
@@ -486,6 +510,46 @@ func GetBalance(address string) []deep_actions.Balance {
 	return Addr.Balance
 }
 
+func GetBalanceForToken(address string, tokenLabel string) deep_actions.Balance {
+	row := a.GetAddress(address)
+	Addr := deep_actions.Address{}
+	tokenBalance := deep_actions.Balance{}
+
+	if row != "" {
+		err := json.Unmarshal([]byte(row), &Addr)
+		if err != nil {
+			log.Println("Get balance error:", err)
+		}
+	}
+
+	for _, i := range Addr.Balance {
+		if i.TokenLabel == tokenLabel {
+			return i
+		}
+	}
+
+	return tokenBalance
+}
+
+func GetScBalance(address string) []deep_actions.Balance {
+	if address == "" {
+		return nil
+	}
+
+	scAddress := address
+	if !crypt.IsAddressSmartContract(address) {
+		publicKey, _ := crypt.PublicKeyFromAddress(address)
+		scAddress = crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
+	}
+
+	if scAddress == "" {
+		return nil
+	}
+
+	balance := GetBalance(scAddress)
+	return balance
+}
+
 func GetAddressToken(address string) deep_actions.Token {
 	row := a.GetAddress(address)
 	token := deep_actions.Token{}
@@ -497,7 +561,7 @@ func GetAddressToken(address string) deep_actions.Token {
 			log.Println("Get token from address error 1:", err)
 		} else {
 
-			row = GetToken(Addr.TokenLabel)
+			row = GetTokenJson(Addr.TokenLabel)
 			if row != "" {
 				err := json.Unmarshal([]byte(row), &token)
 				if err != nil {
@@ -528,6 +592,15 @@ func CheckAddressToken(address string) bool {
 	return addressData.TokenLabel != ""
 }
 
+func IsAddressTokenOwner(address string, tokenLabel string) bool {
+	addressData := GetAddress(address)
+	if addressData.TokenLabel == tokenLabel {
+		return true
+	}
+
+	return false
+}
+
 func CheckAddressScKeeping(address string) bool {
 	if crypt.IsAddressUw(address) {
 		row := a.GetAddress(address)
@@ -545,6 +618,7 @@ func CheckAddressScKeeping(address string) bool {
 	return true
 }
 
+// Функция для получения балансов всех нод
 func GetAllNodesBalances() float64 {
 	rows := leveldb.AddressDB.GetAll(metrics.NodePrefix)
 	var result float64
@@ -569,22 +643,31 @@ func CheckAddress(address string) bool {
 	return leveldb.AddressDB.Has(address)
 }
 
+// Функция для расчёта награды за блок для Proposer`a
 func CalculateReward(address string) float64 {
-	if addressBalance := GetBalance(address); addressBalance != nil {
-		for _, item := range addressBalance {
-			if item.TokenLabel == config.RewardTokenLabel {
-				if config.BlockHeight > config.AnnualBlockHeight {
-					return config.RewardCoefficientStage2
-				} else {
-					return (item.Amount * config.RewardCoefficientStage1) / 100
-				}
-			}
-		}
-	}
+	//if addressBalance := GetBalance(address); addressBalance != nil {
+	//	for _, item := range addressBalance {
+	//		if item.TokenLabel == config.RewardTokenLabel {
+	//			if config.BlockHeight > config.AnnualBlockHeight {
+	//				return config.RewardCoefficientStage2
+	//			} else {
+	//				return (item.Amount * config.RewardCoefficientStage1) / 100
+	//			}
+	//		}
+	//	}
+	//}
 
-	return 0
+	addressBalance := GetBalanceForToken(address, config.RewardTokenLabel)
+	if config.BlockHeight > config.AnnualBlockHeight {
+		return config.RewardCoefficientStage2
+	} else {
+		reward, _ := apparel.Round((addressBalance.Amount * config.RewardCoefficientStage1) / 100)
+		return reward
+	}
 }
 
+//Tx
+// Функция для получения списка транзакций аккаунта
 func GetTransactions(address string) []deep_actions.Tx {
 	var result []deep_actions.Tx
 	transactions := tx.GetTx(address)
@@ -612,6 +695,7 @@ func reverseTxs(txs []deep_actions.Tx) []deep_actions.Tx {
 	return append(reverseTxs(txs[1:]), txs[0])
 }
 
+// Функция для получения транзакции по её хэшу
 func GetTxForHash(hash string) string {
 	result := ""
 
@@ -648,31 +732,18 @@ func CheckTx(hashTx string) bool {
 	return leveldb.TxsDB.Has(hashTx)
 }
 
-func CheckToken(label string) bool {
-	return t.CheckToken(label)
-}
-
-func GetTokens() string {
-	result, err := json.Marshal(t.GetTokens())
-	if err != nil {
-		log.Println("Get tokens error:", err)
-	}
-
-	return string(result)
-}
-
-func GetToken(label string) string {
-	return t.GetToken(label)
-}
-
+// Config
+// Функция для изменения параметра BlockHeight в конфиге
 func BlockHeightUpdate() {
 	config.BlockHeight = GetBlockHeight()
 }
 
+// Функция для получения данных конфига из базы данных под названию параметра
 func GetConfig(key string) string {
 	return conf.GetConfig(key)
 }
 
+// Функция для получения текущей высоты блока
 func GetBlockHeight() int64 {
 	result, _ := strconv.ParseInt(GetConfig("block_height"), 10, 64)
 
@@ -689,6 +760,77 @@ func GetTokenId() int64 {
 		log.Println("Get token id error:", err)
 	}
 	return result
+}
+
+//Token
+// Функция для проверки токена в базе данных
+func CheckToken(label string) bool {
+	return t.CheckToken(label)
+}
+
+// Функция для получения всех токенов из базы данных
+func GetTokens(start, limit int64) (interface{}, error) {
+	var tokens []deep_actions.Token
+	if start < 0 {
+		tokens = t.GetAllTokens()
+	} else {
+		/*if start > limit {
+			start = 1
+		}*/
+
+		for i := start; i <= start+limit-1; i++ {
+			token, err := GetTokenForId(i)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("error 1: get token for id %v", err))
+			}
+
+			tokens = append(tokens, token)
+		}
+	}
+
+	if tokens == nil {
+		return nil, errors.New("error 2: empty tokens list")
+	} else {
+		sort.Slice(tokens, func(i, j int) bool {
+			return tokens[i].Id < tokens[j].Id
+		})
+	}
+
+	return tokens, nil
+}
+
+func GetTokensCount() int64 {
+	return leveldb.TokenDb.Count()
+}
+
+// Функция получения токена по его id
+func GetTokenForId(tokenId int64) (deep_actions.Token, error) {
+	var token deep_actions.Token
+	tokenLabel := leveldb.TokenIdsDb.Get(strconv.FormatInt(tokenId, 10)).Value
+	if tokenLabel != "" {
+		tokenJson := leveldb.TokenDb.Get(tokenLabel).Value
+		if tokenJson != "" {
+			err := json.Unmarshal([]byte(tokenJson), &token)
+			if err != nil {
+				return token, errors.New(fmt.Sprintf("error 1: %v", err))
+			}
+		}
+	}
+
+	return token, nil
+}
+
+func GetTokenJson(label string) string {
+	return t.GetToken(label)
+}
+
+func GetToken(label string) deep_actions.Token {
+	jsonString := t.GetToken(label)
+
+	token := deep_actions.Token{}
+	_ = json.Unmarshal([]byte(jsonString), &token)
+
+	return token
 }
 
 func TokenAbandonment(address string, label string) error {

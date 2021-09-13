@@ -32,13 +32,14 @@ type LevelDb interface {
 }
 
 var (
-	db        = Database{}
-	ConfigDB  = db.NewConnection("storage/config")
-	AddressDB = db.NewConnection("storage/address")
-	ChainDB   = db.NewConnection("storage/chain")
-	TxDB      = db.NewConnection("storage/tx")
-	TxsDB     = db.NewConnection("storage/txs")
-	TokenDb   = db.NewConnection("storage/token")
+	db         = Database{}
+	ConfigDB   = db.NewConnection("storage/config")
+	AddressDB  = db.NewConnection("storage/address")
+	ChainDB    = db.NewConnection("storage/chain")
+	TxDB       = db.NewConnection("storage/tx")
+	TxsDB      = db.NewConnection("storage/txs")
+	TokenDb    = db.NewConnection("storage/token")
+	TokenIdsDb = db.NewConnection("storage/token_ids")
 )
 
 func (d *Database) NewConnection(path string) *Database {
@@ -59,6 +60,19 @@ func (d Database) Put(key string, value string) {
 	if err != nil {
 		log.Println("Put error:", err)
 	}
+}
+
+func (d Database) Count() int64 {
+	iter := d.dbConn.NewIterator(nil, nil)
+
+	var count int64 = 0
+	for iter.Next() {
+		count++
+	}
+
+	defer iter.Release()
+
+	return count
 }
 
 func (d Database) Has(key string) bool {

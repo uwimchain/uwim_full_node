@@ -75,38 +75,30 @@ func GetNextProposer() string {
 
 func GetValidators() []Validator {
 	var validators []Validator
-	jsonData := GetJsonData("validators")
-	if jsonData != nil {
-		err := json.Unmarshal(GetJsonData("validators"), &validators)
-		if err != nil {
-			log.Println("Get Validators error:", err)
-			return nil
-		} else {
-			return validators
-		}
+	err := json.Unmarshal(GetJsonData("validators"), &validators)
+	if err != nil {
+		log.Println("Get Validators error:", err)
+		return nil
+	} else {
+		return validators
 	}
-
-	return validators
 }
 
 func GetJsonData(jsonFile string) []byte {
-	if config.JsonDownloadIp != "" {
-		res, err := http.Get(config.JsonDownloadIp + "/" + jsonFile + ".json")
-		if err != nil {
-			log.Println("Get JSON Data error:", err)
-		} else {
-			defer res.Body.Close()
-			if res.StatusCode == 200 {
-				answer, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					log.Println("Get JSON Data ReadAll error:", err)
-				} else {
-					return answer
-				}
+	res, err := http.Get(config.JsonDownloadIp + "/" + jsonFile + ".json")
+	if err != nil {
+		log.Println("Get JSON Data error:", err)
+	} else {
+		defer res.Body.Close()
+		if res.StatusCode == 200 {
+			answer, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				log.Println("Get JSON Data ReadAll error:", err)
+			} else {
+				return answer
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -132,6 +124,23 @@ func IsValidator() bool {
 				return true
 			}
 		}
+	} else {
+		log.Println("Error: empty validators list.")
+	}
+	return false
+}
+
+//func IsNodeValidator(ip string, address string) bool {
+func IsNodeValidator(address string) bool {
+	if ValidatorsMemory != nil {
+		for _, validator := range ValidatorsMemory {
+			//if validator.Address == address && validator.Ip == ip {
+			if validator.Address == address {
+				return true
+			}
+		}
+	} else {
+		log.Println("Error: empty validators list.")
 	}
 	return false
 }

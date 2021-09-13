@@ -14,7 +14,10 @@ type Request struct {
 }
 
 func NewRequest(dataType string, body string) *Request {
-	return &Request{DataType: dataType, Body: body}
+	return &Request{
+		DataType: dataType,
+		Body:     body,
+	}
 }
 
 func Client(address string, data Request, path string) error {

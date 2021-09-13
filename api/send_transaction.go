@@ -26,8 +26,12 @@ type SendTransactionArgs struct {
 	From       string  `json:"from"`
 	To         string  `json:"to"`
 	Amount     float64 `json:"amount"`
-	TokenLabel string  `json:"tokenLabel"`
+	TokenLabel string  `json:"token_label"`
 	Type       string  `json:"type"`
+	Comment    Comment `json:"comment"`
+}
+
+type Comment interface {
 }
 
 func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error {
@@ -40,12 +44,9 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 
 	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
 	signature := crypt.SignMessageWithSecretKey(secretKey, []byte(args.From))
-	timestamp := apparel.Timestamp()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	var tax float64 = 0
-	if args.Type != "undelegate_contract_transaction" {
-		tax = apparel.CalcTax(args.Amount * config.TaxConversion * config.Tax)
-	}
 
 	comment := *deep_actions.NewComment(
 		args.Type,
@@ -54,16 +55,40 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 
 	amount := args.Amount
 
-	if args.Type == "undelegate_contract_transaction" {
+	//if args.Type != "undelegate_contract_transaction" && args.Type != "confirmation_transaction" {
+	if args.Type != "undelegate_contract_transaction" {
+		if args.TokenLabel != config.BaseToken {
+			tax = apparel.CalcTax(args.Amount)
+		} else {
+			tax = 0.01
+		}
+	}
+
+	switch args.Type {
+	case "undelegate_contract_transaction":
 		undelegateCommentData := *delegate_con.NewUndelegateCommentData(args.Amount)
 		jsonString, _ := json.Marshal(undelegateCommentData)
 		comment.Data = jsonString
-
 		amount = 0
-	}
-
-	if args.Type == "smart_contract_abandonment" {
+		break
+	/*case "confirmation_transaction":
+	amount = 0
+	break*/
+	case "smart_contract_abandonment":
 		amount = 1
+		break
+	case "default_transaction":
+		if crypt.IsAddressSmartContract(args.To) && args.To != config.DelegateScAddress {
+			pubKey, _ := crypt.PublicKeyFromAddress(args.To)
+			uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, pubKey)
+			token := storage.GetAddressToken(uwAddress)
+
+			if token.Standard != 0 {
+				commentJson, _ := json.Marshal(args.Comment)
+				comment.Data = commentJson
+			}
+		}
+		break
 	}
 
 	transaction := *deep_actions.NewTx(
@@ -102,7 +127,7 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 }
 
 func validateTransaction(args *SendTransactionArgs) int64 {
-	if args.From == "" {
+	/*if args.From == "" {
 		return 1
 	}
 
@@ -111,7 +136,7 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 		!strings.HasPrefix(args.From, metrics.AddressPrefix) ||
 		len(args.From) != 61 {
 		return 2
-	}
+	}*/
 
 	if args.Mnemonic == "" {
 		return 3
@@ -132,7 +157,7 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 		return 6
 	}
 
-	_, err := crypt.PublicKeyFromAddress(args.To)
+	publicKey, err := crypt.PublicKeyFromAddress(args.To)
 	if err != nil {
 		return 7
 	}
@@ -148,8 +173,36 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 		return 8
 	}
 
-	if args.Amount <= 0 && args.Type != "undelegate_contract_transaction" {
-		return 9
+	if args.Amount < 0 {
+		return 91
+	}
+
+	if args.Amount == 0 {
+		switch args.Type {
+		case "undelegate_contract_transaction":
+			//pass
+			break
+		case "default_transaction":
+			if !crypt.IsAddressSmartContract(args.To) {
+				return 92
+			}
+
+			uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, publicKey)
+			token := storage.GetAddressToken(uwAddress)
+			if token.Standard != 4 {
+				return 93
+			}
+
+			break
+		/*case "confirmation_transaction":
+		if !crypt.IsAddressSmartContract(args.To) {
+			return 94
+		}
+		//pass
+		break*/
+		default:
+			return 95
+		}
 	}
 
 	if args.TokenLabel == "" {
@@ -161,7 +214,7 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 	}
 
 	if args.Type != "undelegate_contract_transaction" {
-		sendToken := deep_actions.Balance{}
+		/*sendToken := deep_actions.Balance{}
 		taxToken := deep_actions.Balance{}
 
 		for _, token := range storage.GetBalance(args.From) {
@@ -178,7 +231,11 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 			return 12
 		}
 
-		if taxToken.Amount < apparel.CalcTax(args.Amount*config.TaxConversion*config.Tax) {
+		if taxToken.Amount < apparel.CalcTax(args.Amount) {
+			return 12
+		}*/
+		validateBalance := validateBalance(args.From, args.Amount, args.TokenLabel, true)
+		if validateBalance != 0 {
 			return 12
 		}
 	}
@@ -221,8 +278,62 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 			}
 			break
 		}
+	/*case "confirmation_transaction":
+	if !crypt.IsAddressSmartContract(args.To) {
+		return 18
+	}
+
+	err := my_token_con.ValidateConfirmation(args.To, args.From)
+	if err != 0 {
+		return err
+	}
+	break*/
 	default:
 		return 22
+	}
+
+	for _, i := range storage.TransactionsMemory {
+		if i.From == args.From {
+			return 23
+		}
+	}
+
+	return 0
+}
+
+func TestvalidateTransaction(mnemonic, from, to, tokenLabel string, amount float64) int64 {
+	if !crypt.IsAddressUw(from) && !crypt.IsAddressSmartContract(from) && !crypt.IsAddressSmartContract(from) {
+		return 1
+	}
+
+	if !crypt.IsAddressUw(to) && !crypt.IsAddressSmartContract(to) && !crypt.IsAddressSmartContract(to) {
+		return 5
+	}
+
+	if from == to {
+		return 7
+	}
+
+	if amount < 0 {
+		return 8
+	}
+
+	if tokenLabel == "" {
+		return 9
+	}
+
+	validateMnemonic := validateMnemonic(mnemonic, from)
+	if validateMnemonic != 0 {
+		return validateMnemonic
+	}
+
+	if !storage.CheckToken(tokenLabel) {
+		return 10
+	}
+
+	validateBalance := validateBalance(from, amount, tokenLabel, true)
+	if validateBalance != 0 {
+		return validateBalance
 	}
 
 	return 0

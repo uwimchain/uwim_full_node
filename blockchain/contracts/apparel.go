@@ -1,9 +1,11 @@
 package contracts
 
 import (
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"log"
 )
 
 type Database struct {
@@ -23,7 +25,11 @@ func NewRow(key string, value string) *Row {
 }
 
 func (d Database) NewConnection(path string) *Database {
-	con, _ := leveldb.OpenFile(path, nil)
+	con, err := leveldb.OpenFile(path, nil)
+
+	if err != nil {
+		log.Println(fmt.Sprintf("error with open path %s: %v", path, err))
+	}
 
 	db := &Database{
 		dbConn: con,
@@ -33,7 +39,10 @@ func (d Database) NewConnection(path string) *Database {
 }
 
 func (d Database) Put(key string, value string) {
-	_ = d.dbConn.Put([]byte(key), []byte(value), nil)
+	err := d.dbConn.Put([]byte(key), []byte(value), nil)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (d Database) Has(key string) bool {
