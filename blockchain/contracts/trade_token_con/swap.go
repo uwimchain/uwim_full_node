@@ -200,16 +200,22 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 			txTokenLabel,
 			strconv.FormatInt(timestamp, 10),
 			0,
-			crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+			nil,
 			*contracts.NewComment("default_transaction", txCommentSign),
 		)
 
-		jsonString, err := json.Marshal(tx)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error 15: %v", err))
-		}
+		jsonString, _ := json.Marshal(contracts.Tx{
+			Type:       tx.Type,
+			Nonce:      tx.Nonce,
+			From:       tx.From,
+			To:         tx.To,
+			Amount:     tx.Amount,
+			TokenLabel: tx.TokenLabel,
+			Comment:    tx.Comment,
+		})
+		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-		contracts.SendTx(jsonString)
+		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 	}
 

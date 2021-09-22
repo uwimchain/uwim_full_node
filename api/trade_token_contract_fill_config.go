@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts/trade_token_con"
 	"node/config"
@@ -29,34 +28,43 @@ func (api *Api) TradeTokenContractFillConfig(args *FillConfigArgs, result *strin
 		return errors.New(strconv.FormatInt(check, 10))
 	}
 
-	timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
-	commentData, err := json.Marshal(trade_token_con.TradeConfig{
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+	jsonString, _ := json.Marshal(trade_token_con.TradeConfig{
 		Commission: args.Commission,
 	})
+	comment := deep_actions.Comment{
+		Title: "trade_token_contract_fill_config_transaction",
+		Data:  jsonString,
+	}
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
 	tx := deep_actions.Tx{
 		Type:       1,
-		Nonce:      apparel.GetNonce(timestampD),
+		Nonce:      apparel.GetNonce(timestamp),
 		HashTx:     "",
 		Height:     config.BlockHeight,
 		From:       uwAddress,
 		To:         scAddress,
 		Amount:     1,
 		TokenLabel: config.BaseToken,
-		Timestamp:  timestampD,
+		Timestamp:  timestamp,
 		Tax:        0,
-		Signature:  crypt.SignMessageWithSecretKey(crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)), []byte(uwAddress)),
-		Comment: deep_actions.Comment{
-			Title: "trade_token_contract_fill_config_transaction",
-			Data:  commentData,
-		},
+		Signature:  nil,
+		Comment:    comment,
 	}
 
-	jsonString, err := json.Marshal(tx)
-	if err != nil {
-		log.Println("Send transaction error:", err)
-	}
-
-	sender.SendTx(jsonString)
+	jsonString, _ = json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
 
 	if memory.IsValidator() {
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

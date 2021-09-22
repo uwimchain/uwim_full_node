@@ -17,6 +17,15 @@ func Timestamp() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
+func UnixFromStringTimestamp(timestamp string) int64 {
+	timestampUnix, err := time.Parse(time.RFC3339Nano, timestamp)
+	if err != nil {
+		log.Println("Unix from string timestamp error:", err)
+	}
+
+	return timestampUnix.UnixNano()
+}
+
 func TimestampUnix() int64 {
 	timestamp, err := time.Parse(time.RFC3339Nano, time.Now().Format(time.RFC3339Nano))
 	if err != nil {
@@ -127,6 +136,24 @@ func ConvertInterfaceToInt64(int64_ interface{}) int64 {
 	v2 = reflect.Indirect(v2)
 	if v2.Type().ConvertibleTo(Int64Type) {
 		result = v2.Convert(Int64Type).Int()
+	}
+
+	return result
+}
+
+func ConvertInterfaceToInt(int_ interface{}) int {
+	if int_ == nil {
+		return 0
+	}
+	var (
+		IntType reflect.Type = reflect.TypeOf(int(0))
+		result  int          = 0
+	)
+
+	v2 := reflect.ValueOf(int_)
+	v2 = reflect.Indirect(v2)
+	if v2.Type().ConvertibleTo(IntType) {
+		result = int(v2.Convert(IntType).Int())
 	}
 
 	return result

@@ -83,7 +83,7 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 				TokenLabel: i.TokenLabel,
 				Timestamp:  strconv.FormatInt(timestamp, 10),
 				Tax:        0,
-				Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+				Signature:  nil,
 				Comment:    *contracts.NewComment("default_transaction", txCommentSign),
 			})
 
@@ -132,15 +132,23 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 			i.Tax,
 			i.Signature,
 			i.Comment)
-		jsonString, err := json.Marshal(tx)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error 9: %v", err))
-		}
+
+		jsonString, _ := json.Marshal(contracts.Tx{
+			Type:       tx.Type,
+			Nonce:      tx.Nonce,
+			From:       tx.From,
+			To:         tx.To,
+			Amount:     tx.Amount,
+			TokenLabel: tx.TokenLabel,
+			Comment:    tx.Comment,
+		})
+		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
 		if memory.IsNodeProposer() {
-			contracts.SendTx(jsonString)
+			contracts.SendTx(*tx)
 		}
 
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory)
+		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 	}
 
 	return nil

@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/config"
 	"node/crypt"
@@ -47,67 +46,65 @@ func (api *Api) FillTokenCard(args *FillTokenCardArgs, result *string) error {
 
 	if check := validateCardFields(args); check != 0 {
 		return errors.New(strconv.FormatInt(check, 10))
-	} else {
-
-		signature := crypt.SignMessageWithSecretKey(
-			crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)),
-			[]byte(args.Proposer),
-		)
-
-		tokenCard := deep_actions.PersonalTokenCard{
-			FullName:   args.FullName,
-			BirthDay:   args.BirthDay,
-			Gender:     args.Gender,
-			Country:    args.Country,
-			Region:     args.Region,
-			City:       args.City,
-			Social:     args.Social,
-			Messengers: args.Messengers,
-			//Photos:     args.Photos,
-			Email:     args.Email,
-			Site:      args.Site,
-			Hashtags:  args.Hashtags,
-			WorkPlace: args.WorkPlace,
-			School:    args.School,
-			Education: args.Education,
-			Comment:   args.Comment,
-		}
-
-		jsonString, err := json.Marshal(tokenCard)
-		if err != nil {
-			log.Println("Api fill token card error 1:", err)
-		} else {
-			timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-
-			transaction := deep_actions.NewTx(
-				3,
-				apparel.GetNonce(timestamp),
-				"",
-				config.BlockHeight,
-				args.Proposer,
-				config.NodeNdAddress,
-				config.FillTokenCardCost,
-				config.BaseToken,
-				timestamp,
-				0,
-				signature,
-				*deep_actions.NewComment(
-					"fill_token_card_transaction",
-					jsonString,
-				),
-			)
-
-			jsonString, err := json.Marshal(transaction)
-			if err != nil {
-				log.Println("Api fill token card error 2:", err)
-			} else {
-				sender.SendTx(jsonString)
-				storage.TransactionsMemory = append(storage.TransactionsMemory, *transaction)
-				*result = "Token card filled"
-			}
-		}
 	}
 
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
+	tokenCard := deep_actions.PersonalTokenCard{
+		FullName:   args.FullName,
+		BirthDay:   args.BirthDay,
+		Gender:     args.Gender,
+		Country:    args.Country,
+		Region:     args.Region,
+		City:       args.City,
+		Social:     args.Social,
+		Messengers: args.Messengers,
+		//Photos:     args.Photos,
+		Email:     args.Email,
+		Site:      args.Site,
+		Hashtags:  args.Hashtags,
+		WorkPlace: args.WorkPlace,
+		School:    args.School,
+		Education: args.Education,
+		Comment:   args.Comment,
+	}
+
+	jsonString, _ := json.Marshal(tokenCard)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+
+	comment := deep_actions.Comment{
+		Title: "fill_token_card_transaction",
+		Data:  jsonString,
+	}
+
+	tx := deep_actions.Tx{
+		Type:       3,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       args.Proposer,
+		To:         config.NodeNdAddress,
+		Amount:     config.FillTokenCardCost,
+		TokenLabel: config.BaseToken,
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
+
+	jsonString, _ = json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
+	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
+	*result = "Token card filled"
 	return nil
 }
 

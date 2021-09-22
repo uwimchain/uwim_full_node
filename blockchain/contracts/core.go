@@ -100,25 +100,34 @@ func RefundTransaction(scAddress string, uwAddress string, amount float64, token
 		return errors.New(fmt.Sprintf("error 3: samrt contract balance haven`t token %s", tokenLabel))
 	}
 
-	timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	tx := NewTx(
 		5,
-		apparel.GetNonce(timestampD),
+		apparel.GetNonce(timestamp),
 		"",
 		config.BlockHeight,
 		scAddress,
 		uwAddress,
 		amount,
 		tokenLabel,
-		timestampD,
+		timestamp,
 		0,
-		crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+		nil,
 		*NewComment("refund_transaction", nil),
 	)
 
-	jsonString, _ := json.Marshal(tx)
+	jsonString, _ := json.Marshal(Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-	SendTx(jsonString)
+	SendTx(*tx)
 	*TransactionsMemory = append(*TransactionsMemory, *tx)
 
 	return nil

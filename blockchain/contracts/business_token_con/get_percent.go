@@ -151,7 +151,7 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 		config.NodeNdAddress,
 	))
 
-	transaction := contracts.NewTx(
+	tx := contracts.NewTx(
 		5,
 		apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
 		"",
@@ -162,22 +162,25 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 		tokenLabel,
 		strconv.FormatInt(timestamp, 10),
 		txTax,
-		crypt.SignMessageWithSecretKey(
-			config.NodeSecretKey,
-			[]byte(config.NodeNdAddress),
-		),
+		nil,
 		*contracts.NewComment(
 			"default_transaction",
 			txCommentSign,
 		),
 	)
 
-	jsonString, err := json.Marshal(transaction)
-	if err != nil {
-		return errors.New(fmt.Sprintf("error 12: %v", err))
-	}
+	jsonString, _ := json.Marshal(contracts.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-	err = contracts.AddEvent(scAddress, *contracts.NewEvent("Get percent", timestamp, blockHeight, txHash, uwAddress, newEventGetPercentTypeData(amount, tokenLabel)), EventDB, ConfigDB)
+	err := contracts.AddEvent(scAddress, *contracts.NewEvent("Get percent", timestamp, blockHeight, txHash, uwAddress, newEventGetPercentTypeData(amount, tokenLabel)), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 13: %v", err))
 	}
@@ -189,8 +192,8 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 	ContractsDB.Put(scAddress, string(jsonScAddressPartners))
 
 	if memory.IsNodeProposer() {
-		contracts.SendTx(jsonString)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
+		contracts.SendTx(*tx)
+		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 	}
 
 	return nil

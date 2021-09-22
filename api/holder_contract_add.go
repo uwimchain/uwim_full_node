@@ -42,7 +42,6 @@ func (api *Api) HolderContractAdd(args *HolderContractAddArgs, result *string) e
 	commentData := make(map[string]interface{})
 	commentData["recipient_address"] = args.RecipientAddress
 	commentData["token_label"] = args.TokenLabel
-	//commentData["amount"] = args.Amount
 	commentData["get_block_height"] = args.GetBlockHeight
 
 	commentDataJson, err := json.Marshal(commentData)
@@ -50,6 +49,14 @@ func (api *Api) HolderContractAdd(args *HolderContractAddArgs, result *string) e
 		log.Println("Send Transaction error:", err)
 		return nil
 	}
+
+	comment := deep_actions.Comment{
+		Title: "holder_contract_add_transaction",
+		Data:  commentDataJson,
+	}
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
 	tx := deep_actions.Tx{
 		Type:       1,
 		Nonce:      apparel.GetNonce(timestamp),
@@ -61,20 +68,21 @@ func (api *Api) HolderContractAdd(args *HolderContractAddArgs, result *string) e
 		TokenLabel: config.BaseToken,
 		Timestamp:  timestamp,
 		Tax:        config.HolderAddCost,
-		Signature:  crypt.SignMessageWithSecretKey(crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)), []byte(args.DepositorAddress)),
-		Comment: deep_actions.Comment{
-			Title: "holder_contract_add_transaction",
-			Data:  commentDataJson,
-		},
+		Signature:  nil,
+		Comment:    comment,
 	}
 
-	jsonString, err := json.Marshal(tx)
-	if err != nil {
-		log.Println("Send Transaction error:", err)
-		return nil
-	}
-
-	sender.SendTx(jsonString)
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
 
 	if memory.IsValidator() {
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

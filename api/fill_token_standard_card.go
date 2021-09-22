@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/config"
 	"node/crypt"
@@ -27,42 +26,45 @@ func (api *Api) FillTokenStandardCard(args *FillTokenStandardCardArgs, result *s
 
 	if check := validateStandardCardFields(args); check != 0 {
 		return errors.New(strconv.FormatInt(check, 10))
-	} else {
-
-		signature := crypt.SignMessageWithSecretKey(
-			crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)),
-			[]byte(args.Proposer),
-		)
-
-		timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-
-		transaction := deep_actions.NewTx(
-			3,
-			apparel.GetNonce(timestamp),
-			"",
-			config.BlockHeight,
-			args.Proposer,
-			config.NodeNdAddress,
-			config.FillTokenCardCost,
-			config.BaseToken,
-			timestamp,
-			0,
-			signature,
-			*deep_actions.NewComment(
-				"fill_token_standard_card_transaction",
-				[]byte(args.StandardCardDataJson),
-			),
-		)
-
-		jsonString, err := json.Marshal(transaction)
-		if err != nil {
-			log.Println("Api fill token standard card error 1:", err)
-		} else {
-			sender.SendTx(jsonString)
-			storage.TransactionsMemory = append(storage.TransactionsMemory, *transaction)
-			*result = "Token standard card filled"
-		}
 	}
+
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
+	comment := deep_actions.Comment{
+		Title: "fill_token_standard_card_transaction",
+		Data:  []byte(args.StandardCardDataJson),
+	}
+
+	tx := deep_actions.Tx{
+		Type:       3,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       args.Proposer,
+		To:         config.NodeNdAddress,
+		Amount:     config.FillTokenCardCost,
+		TokenLabel: config.BaseToken,
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
+
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
+	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
+	*result = "Token standard card filled"
 
 	return nil
 }

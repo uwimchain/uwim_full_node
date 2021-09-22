@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/config"
 	"node/crypt"
@@ -28,58 +27,65 @@ type RenameTokenArgs struct {
 func (api *Api) RenameToken(args *RenameTokenArgs, result *string) error {
 	args.Mnemonic, args.Proposer, args.Label = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.Proposer), apparel.TrimToLower(args.Label)
 
-	if check := validateRenameToken(args); check == 0 {
-		signature := crypt.SignMessageWithSecretKey(
-			crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)),
-			[]byte(args.Proposer),
-		)
-
-		token := deep_actions.NewToken(
-			0,
-			1,
-			args.Label,
-			args.NewName,
-			"",
-			nil,
-			0,
-			0,
-		)
-
-		jsonString, err := json.Marshal(token)
-		if err != nil {
-			log.Println("Api rename token error 1:", err)
-		} else {
-			timestamp :=strconv.FormatInt(apparel.TimestampUnix(), 10)
-			transaction := *deep_actions.NewTx(
-				3,
-				apparel.GetNonce(timestamp),
-				"",
-				config.BlockHeight,
-				args.Proposer,
-				config.NodeNdAddress,
-				config.RenameTokenCost,
-				"uwm",
-				timestamp,
-				0,
-				signature,
-				*deep_actions.NewComment(
-					"rename_token_transaction",
-					jsonString,
-				),
-			)
-
-			jsonString, err := json.Marshal(transaction)
-			if err != nil {
-				log.Println("Api rename token error 2:", err)
-			} else {
-				sender.SendTx(jsonString)
-				storage.TransactionsMemory = append(storage.TransactionsMemory, transaction)
-				*result = "Token renamed"
-			}
-		}
-	} else {
+	if check := validateRenameToken(args); check != 0 {
 		return errors.New(strconv.FormatInt(check, 10))
 	}
+
+	token := deep_actions.Token{
+		Id:                  0,
+		Type:                1,
+		Label:               args.Label,
+		Name:                args.NewName,
+		Proposer:            "",
+		Signature:           nil,
+		Emission:            0,
+		Timestamp:           0,
+		Standard:            0,
+		StandardHistory:     nil,
+		StandardCard:        "",
+		StandardCardHistory: nil,
+		Card:                "",
+		CardHistory:         nil,
+	}
+
+	jsonString, _ := json.Marshal(token)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
+	comment := deep_actions.Comment{
+		Title: "rename_token_transaction",
+		Data:  jsonString,
+	}
+
+	tx := deep_actions.Tx{
+		Type:       3,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       args.Proposer,
+		To:         config.NodeNdAddress,
+		Amount:     config.RenameTokenCost,
+		TokenLabel: "uwm",
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
+
+	jsonString, _ = json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
+	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
+	*result = "Token renamed"
 
 	return nil
 }

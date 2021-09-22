@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts/trade_token_con"
 	"node/config"
@@ -42,32 +41,41 @@ func (api *Api) TradeTokenContractGetLiq(args *TradeTokenContractGetLiqArgs, res
 		return errors.New(strconv.FormatInt(check, 10))
 	}
 
-	timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+
+	comment := deep_actions.Comment{
+		Title: "trade_token_contract_get_liq_transaction",
+		Data:  nil,
+	}
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
 
 	tx := deep_actions.Tx{
 		Type:       1,
-		Nonce:      apparel.GetNonce(timestampD),
+		Nonce:      apparel.GetNonce(timestamp),
 		HashTx:     "",
 		Height:     config.BlockHeight,
 		From:       uwAddress,
 		To:         args.ScAddress,
 		Amount:     0,
 		TokenLabel: args.TokenLabel,
-		Timestamp:  timestampD,
+		Timestamp:  timestamp,
 		Tax:        0,
-		Signature:  crypt.SignMessageWithSecretKey(crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)), []byte(uwAddress)),
-		Comment: deep_actions.Comment{
-			Title: "trade_token_contract_get_liq_transaction",
-			Data:  nil,
-		},
+		Signature:  nil,
+		Comment:    comment,
 	}
 
-	jsonString, err := json.Marshal(tx)
-	if err != nil {
-		log.Println("Send Transaction error:", err)
-	}
-
-	sender.SendTx(jsonString)
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
 
 	if memory.IsValidator() {
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

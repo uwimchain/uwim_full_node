@@ -107,7 +107,7 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		config.NodeNdAddress,
 	))
 
-	transaction := contracts.NewTx(
+	tx := contracts.NewTx(
 		5,
 		apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
 		"",
@@ -128,10 +128,16 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		),
 	)
 
-	jsonString, err := json.Marshal(transaction)
-	if err != nil {
-		return errors.New(fmt.Sprintf("error 9: %v", err))
-	}
+	jsonString, _ := json.Marshal(contracts.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
 	if scAddressTokenStandardCard.Partners != nil {
 		scAddressPartnersJson := ContractsDB.Get(scAddress).Value
@@ -180,8 +186,8 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	}
 
 	if memory.IsNodeProposer() {
-		contracts.SendTx(jsonString)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
+		contracts.SendTx(*tx)
+		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 	}
 
 	return nil

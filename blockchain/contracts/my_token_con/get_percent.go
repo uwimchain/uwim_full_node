@@ -158,23 +158,35 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int
 		}
 
 		if memory.IsNodeProposer() {
-			for _, t := range transactions {
-				jsonString, _ := json.Marshal(t)
-				contracts.SendTx(jsonString)
-				*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *contracts.NewTx(
-					t.Type,
-					t.Nonce,
-					t.HashTx,
-					t.Height,
-					t.From,
-					t.To,
-					t.Amount,
-					t.TokenLabel,
-					t.Timestamp,
-					t.Tax,
-					t.Signature,
-					t.Comment,
-				))
+			for _, i := range transactions {
+				tx:= contracts.NewTx(
+					i.Type,
+					i.Nonce,
+					i.HashTx,
+					i.Height,
+					i.From,
+					i.To,
+					i.Amount,
+					i.TokenLabel,
+					i.Timestamp,
+					i.Tax,
+					i.Signature,
+					i.Comment,
+				)
+
+				jsonString, _ := json.Marshal(contracts.Tx{
+					Type:       tx.Type,
+					Nonce:      tx.Nonce,
+					From:       tx.From,
+					To:         tx.To,
+					Amount:     tx.Amount,
+					TokenLabel: tx.TokenLabel,
+					Comment:    tx.Comment,
+				})
+				tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
+				contracts.SendTx(*tx)
+				*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 			}
 		}
 	}

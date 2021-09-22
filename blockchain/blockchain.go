@@ -108,19 +108,25 @@ func Worker() {
 							}
 						}
 
+						for i := range body {
+							jsonString, _ := json.Marshal(body[i])
+							body[i].HashTx = crypt.GetHash(jsonString)
+						}
+
 						if votes != nil {
-							storage.BlockMemory = *storage.NewBlock(
-								config.BlockHeight,
-								storage.GetBlockHash(config.BlockHeight-1),
-								strconv.FormatInt(apparel.TimestampUnix(), 10),
-								config.NodeNdAddress,
-								crypt.SignMessageWithSecretKey(
-									config.NodeSecretKey,
-									[]byte(config.NodeNdAddress),
-								),
-								body,
-								votes,
-							)
+							block := storage.Block{
+								Height:            config.BlockHeight,
+								PrevHash:          storage.GetBlockHash(config.BlockHeight - 1),
+								Timestamp:         strconv.FormatInt(apparel.TimestampUnix(), 10),
+								Proposer:          config.NodeNdAddress,
+								ProposerSignature: nil,
+								Body:              body,
+								Votes:             votes,
+							}
+
+							jsonString, _ := json.Marshal(block)
+							block.ProposerSignature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+							storage.BlockMemory = block
 
 							sender.SendNewBlock()
 						}
@@ -147,25 +153,22 @@ func Worker() {
 
 							if voteIdx != len(storage.BlockMemory.Votes) {
 
-								sign := crypt.SignMessageWithSecretKey(
-									config.NodeSecretKey,
-									[]byte(config.NodeNdAddress),
-								)
-								jsonString, err := json.Marshal(*deep_actions.NewVote(
-									config.NodeNdAddress,
-									sign,
-									config.BlockHeight,
-									nodeVote,
-								))
-								if err != nil {
-									log.Println("Vote Sign error:", err)
+								vote := deep_actions.Vote{
+									Proposer:    config.NodeNdAddress,
+									Signature:   nil,
+									BlockHeight: config.BlockHeight,
+									Vote:        nodeVote,
 								}
 
-								storage.BlockMemory.Votes[voteIdx].Vote = nodeVote
-								storage.BlockMemory.Votes[voteIdx].Signature = sign
-								storage.BlockMemory.Votes[voteIdx].BlockHeight = config.BlockHeight
+								jsonString, _ := json.Marshal(vote)
 
-								sender.SendBlockVote(jsonString)
+								vote.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
+								//storage.BlockMemory.Votes[voteIdx].Vote = nodeVote
+								//storage.BlockMemory.Votes[voteIdx].Signature = sign
+								//storage.BlockMemory.Votes[voteIdx].BlockHeight = config.BlockHeight
+								storage.BlockMemory.Votes[voteIdx] = vote
+								sender.SendBlockVote(vote)
 							}
 						}
 
@@ -180,7 +183,7 @@ func Worker() {
 					NodeOperationMemory.Status = false
 					if memory.IsValidator() {
 						if storage.BlockMemory.Votes != nil {
-
+							
 							// Подсчёт голосов
 							if calculateVotes() {
 
@@ -841,63 +844,91 @@ func calculate66(votes []deep_actions.Vote) bool {
 func rewardTransaction() deep_actions.Tx {
 	amount, _ := apparel.Round(storage.CalculateReward(config.NodeNdAddress))
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-	transaction := *deep_actions.NewTx(
-		2,
-		apparel.GetNonce(timestamp),
-		"",
-		config.BlockHeight,
-		config.GenesisAddress,
-		config.NodeUwAddress,
-		amount,
-		config.RewardTokenLabel,
-		timestamp,
-		0,
-		crypt.SignMessageWithSecretKey(config.GenesisSecretKey, []byte(config.GenesisAddress)),
-		*deep_actions.NewComment(
-			"reward_transaction",
-			nil,
-		),
-	)
 
-	jsonForHash, err := json.Marshal(transaction)
-	if err != nil {
-		log.Println("Reward transaction error:", err)
+	comment := deep_actions.Comment{
+		Title: "reward_transaction",
+		Data:  nil,
 	}
 
-	transaction.HashTx = crypt.GetHash(jsonForHash)
+	tx := deep_actions.Tx{
+		Type:       2,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       config.GenesisAddress,
+		To:         config.NodeUwAddress,
+		Amount:     amount,
+		TokenLabel: config.RewardTokenLabel,
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
 
-	return transaction
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(config.GenesisSecretKey, jsonString)
+
+	//jsonForHash, err := json.Marshal(tx)
+	//if err != nil {
+	//	log.Println("Reward transaction error:", err)
+	//}
+	//
+	//transaction.HashTx = crypt.GetHash(jsonForHash)
+
+	return tx
 }
 
 func delegateTransaction() deep_actions.Tx {
 	amount, _ := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-	transaction := *deep_actions.NewTx(
-		2,
-		apparel.GetNonce(timestamp),
-		"",
-		config.BlockHeight,
-		config.GenesisAddress,
-		config.DelegateScAddress,
-		amount,
-		config.RewardTokenLabel,
-		timestamp,
-		0,
-		crypt.SignMessageWithSecretKey(config.GenesisSecretKey, []byte(config.GenesisAddress)),
-		*deep_actions.NewComment(
-			"delegate_reward_transaction",
-			nil,
-		),
-	)
 
-	jsonForHash, err := json.Marshal(transaction)
-	if err != nil {
-		log.Println("Delegate transaction error:", err)
+	comment := deep_actions.Comment{
+		Title: "delegate_reward_transaction",
+		Data:  nil,
 	}
 
-	transaction.HashTx = crypt.GetHash(jsonForHash)
+	tx := deep_actions.Tx{
+		Type:       2,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       config.GenesisAddress,
+		To:         config.DelegateScAddress,
+		Amount:     amount,
+		TokenLabel: config.RewardTokenLabel,
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
 
-	return transaction
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(config.GenesisSecretKey, jsonString)
+
+	//jsonForHash, err := json.Marshal(transaction)
+	//if err != nil {
+	//	log.Println("Delegate transaction error:", err)
+	//}
+	//
+	//transaction.HashTx = crypt.GetHash(jsonForHash)
+
+	return tx
 }
 
 func addNodesForVote() []deep_actions.Vote {
@@ -913,19 +944,19 @@ func addNodesForVote() []deep_actions.Vote {
 }
 
 func validateBlock(block storage.Block) bool {
-	chain := deep_actions.Chain{}
-	chain.Header.TxCounter = int64(len(block.Body))
-	chain.Header.ProposerSignature = block.ProposerSignature
-	chain.Header.Proposer = block.Proposer
-	chain.Header.PrevHash = block.PrevHash
+	//chain := deep_actions.Chain{}
+	//chain.Header.TxCounter = int64(len(block.Body))
+	//chain.Header.ProposerSignature = block.ProposerSignature
+	//chain.Header.Proposer = block.Proposer
+	//chain.Header.PrevHash = block.PrevHash
 
-	for _, t := range block.Body {
-		jsonString, _ := json.Marshal(t)
-		t.HashTx = crypt.GetHash(jsonString)
-		chain.Txs = append(chain.Txs, t)
-	}
+	//for i := range block.Body {
+	//	jsonString, _ := json.Marshal(block.Body[i])
+	//	block.Body[i].HashTx = crypt.GetHash(jsonString)
+	//chain.Txs = append(chain.Txs, t)
+	//}
 
-	if err := validation.ValidateBlock(chain); err != nil {
+	if err := validation.ValidateBlock(block); err != nil {
 		fmt.Println(err)
 		return false
 	} else {

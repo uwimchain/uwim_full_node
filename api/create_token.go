@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/config"
 	"node/crypt"
@@ -26,71 +25,72 @@ type CreateTokenArgs struct {
 }
 
 func (api *Api) CreateToken(args *CreateTokenArgs, result *string) error {
-	//args.Mnemonic, args.Proposer, args.Label = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.Proposer), apparel.TrimToLower(args.Label)
 	args.Mnemonic, args.Label = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.Label)
 
 	proposer := crypt.AddressFromMnemonic(args.Mnemonic)
 
-	//if check := validateToken(args); check == 0 {
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
 	if check := validateToken(args.Mnemonic, proposer, args.Label, args.Name, args.Emission, args.Type); check == 0 {
-		signature := crypt.SignMessageWithSecretKey(
-			crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)),
-			//[]byte(args.Proposer),
-			[]byte(proposer),
-		)
 
-		token := deep_actions.NewToken(
-			0,
-			args.Type,
-			args.Label,
-			args.Name,
-			//args.Proposer,
-			proposer,
-			signature,
-			args.Emission,
-			apparel.TimestampUnix(),
-		)
-
-		jsonString, err := json.Marshal(token)
-		if err != nil {
-			log.Println("Api create token error 1:", err)
-		} else {
-
-			timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-			tokenCost := config.NewTokenCost1
-			if args.Emission == 10000000 {
-				tokenCost = config.NewTokenCost1
-			} else if args.Emission > config.MinEmission && args.Emission < config.MaxEmission {
-				tokenCost = config.NewTokenCost2
-			}
-			transaction := deep_actions.NewTx(
-				3,
-				apparel.GetNonce(timestamp),
-				"",
-				config.BlockHeight,
-				//args.Proposer,
-				proposer,
-				config.NodeNdAddress,
-				tokenCost,
-				"uwm",
-				timestamp,
-				0,
-				signature,
-				*deep_actions.NewComment(
-					"create_token_transaction",
-					jsonString,
-				),
-			)
-
-			jsonString, err := json.Marshal(transaction)
-			if err != nil {
-				log.Println("Api create token error 2:", err)
-			} else {
-				sender.SendTx(jsonString)
-				storage.TransactionsMemory = append(storage.TransactionsMemory, *transaction)
-				*result = "Token created"
-			}
+		token := deep_actions.Token{
+			Type:      args.Type,
+			Label:     args.Label,
+			Name:      args.Name,
+			Proposer:  proposer,
+			Signature: nil,
+			Emission:  args.Emission,
+			Timestamp: apparel.TimestampUnix(),
 		}
+
+		jsonString, _ := json.Marshal(token)
+
+		token.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+		jsonString, _ = json.Marshal(token)
+
+		timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+		tokenCost := config.NewTokenCost1
+		if args.Emission == 10000000 {
+			tokenCost = config.NewTokenCost1
+		} else if args.Emission > config.MinEmission && args.Emission < config.MaxEmission {
+			tokenCost = config.NewTokenCost2
+		}
+
+		commentData := jsonString
+		comment := deep_actions.Comment{
+			Title: "create_token_transaction",
+			Data:  commentData,
+		}
+
+		tx := deep_actions.Tx{
+			Type:       3,
+			Nonce:      apparel.GetNonce(timestamp),
+			HashTx:     "",
+			Height:     config.BlockHeight,
+			From:       proposer,
+			To:         config.NodeNdAddress,
+			Amount:     tokenCost,
+			TokenLabel: config.BaseToken,
+			Timestamp:  timestamp,
+			Tax:        0,
+			Signature:  nil,
+			Comment:    comment,
+		}
+
+		jsonString, _ = json.Marshal(deep_actions.Tx{
+			Type:       tx.Type,
+			Nonce:      tx.Nonce,
+			From:       tx.From,
+			To:         tx.To,
+			Amount:     tx.Amount,
+			TokenLabel: tx.TokenLabel,
+			Comment:    tx.Comment,
+		})
+		tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+		sender.SendTx(tx)
+		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
+		*result = "Token created"
 	} else {
 		return errors.New(strconv.FormatInt(check, 10))
 	}

@@ -4,8 +4,11 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"golang.org/x/crypto/pbkdf2"
+	"math"
 	"node/metrics"
 	"strings"
 )
@@ -38,6 +41,11 @@ func IsAddressNode(address string) bool {
 func AddressFromPublicKey(hrp string, publicKey []byte) string {
 	address, _ := bech32Encode(hrp, publicKey)
 	return address
+}
+
+func AddressFromAnotherAddress(hrp string, anotherAddress string) string {
+	publicKey, _ := PublicKeyFromAddress(anotherAddress)
+	return AddressFromPublicKey(hrp, publicKey)
 }
 
 func NodeAddressFromMnemonic(mnemonic string) string {
@@ -84,6 +92,79 @@ func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	copy(publicKey, secretKey[32:])
 
 	return publicKey
+}
+
+// TransactionRaw
+func DecodeTransactionRaw(transactionRaw string) (string, string, string, float64, string, []byte) {
+	// get tx bytes (184)
+	tx, _ := base64.StdEncoding.DecodeString(transactionRaw)
+
+	commentTitleBytes := tx[:1]
+	commentTitle := ""
+	switch commentTitleBytes[0] {
+	case 1:
+		commentTitle = "default_transaction"
+		break
+	}
+
+	// get sender address
+	senderBytes := tx[1:35]
+
+	// get sender address prefix
+	senderPrefixBytes := senderBytes[:2]
+	senderPrefix := getPrefixForBytes(senderPrefixBytes)
+	senderAddressBytes := senderBytes[2:]
+
+	senderAddress, _ := bech32Encode(senderPrefix, senderAddressBytes)
+
+	// get sender address
+	recipientBytes := tx[35:69]
+
+	// get recipient address prefix
+
+	recipientPrefixBytes := recipientBytes[:2]
+	recipientPrefix := getPrefixForBytes(recipientPrefixBytes)
+	recipientAddressBytes := recipientBytes[2:]
+
+	recipientAddress, _ := bech32Encode(recipientPrefix, recipientAddressBytes)
+
+	// get amount
+	amountBytes := tx[69:86]
+	amountFirstBytes := amountBytes[:8]
+	amountSecondBytes := amountBytes[8:16]
+	countZerosAfterDotBytes := amountBytes[16:]
+
+	amountFirst := float64(binary.BigEndian.Uint64(amountFirstBytes))
+	amountSecond := float64(binary.BigEndian.Uint64(amountSecondBytes))
+	countZerosAfterDot := float64(countZerosAfterDotBytes[0]) + 1
+
+	amountSecond /= math.Pow(10, countZerosAfterDot)
+	amount := amountFirst + amountSecond
+
+	// get tokenScAddress
+	tokenBytes := tx[86:120]
+	tokenScAddressBytes := tokenBytes[2:]
+
+	tokenScAddress, _ := bech32Encode(metrics.SmartContractPrefix, tokenScAddressBytes)
+
+	// get signature
+	signatureBytes := tx[120:]
+
+	// get comment data
+	return commentTitle, senderAddress, recipientAddress, amount, tokenScAddress, signatureBytes
+}
+
+func getPrefixForBytes(prefixBytes []byte) string {
+	switch string(prefixBytes) {
+	case string([]byte{86, 224}):
+		return "uw"
+	case string([]byte{76, 96}):
+		return "sc"
+	case string([]byte{56, 128}):
+		return "nd"
+	default:
+		return ""
+	}
 }
 
 func PublicKeyFromAddress(address string) ([]byte, error) {

@@ -93,7 +93,7 @@ func SendUnDelegate(address string, amount float64) error {
 
 		comment := *contracts.NewComment("undelegate_contract_transaction", nil)
 
-		t := contracts.NewTx(
+		tx := contracts.NewTx(
 			5,
 			0,
 			"",
@@ -108,7 +108,7 @@ func SendUnDelegate(address string, amount float64) error {
 			comment,
 		)
 
-		jsonForHash, err := json.Marshal(t)
+		jsonForHash, err := json.Marshal(tx)
 		if err != nil {
 			return errors.New("Blockchain contracts delegate contract undelegate error 3")
 		}
@@ -118,19 +118,25 @@ func SendUnDelegate(address string, amount float64) error {
 			return errors.New("Blockchain contracts delegate contract undelegate error 4")
 		}
 
-		t.Nonce = nonce
-		t.Height = config.BlockHeight
-		t.Timestamp = timestampD
-		t.Signature = sign
-		t.Comment.Data = commentData
+		tx.Nonce = nonce
+		tx.Height = config.BlockHeight
+		tx.Timestamp = timestampD
+		tx.Signature = sign
+		tx.Comment.Data = commentData
 
-		jsonString, err := json.Marshal(t)
-		if err != nil {
-			return errors.New("Blockchain contracts delegate contract undelegate error 5")
-		}
+		jsonString, _ := json.Marshal(contracts.Tx{
+			Type:       tx.Type,
+			Nonce:      tx.Nonce,
+			From:       tx.From,
+			To:         tx.To,
+			Amount:     tx.Amount,
+			TokenLabel: tx.TokenLabel,
+			Comment:    tx.Comment,
+		})
+		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *t)
-		contracts.SendTx(jsonString)
+		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+		contracts.SendTx(*tx)
 
 		// TxDB.Put(strconv.FormatInt(nonce, 10), string(jsonString))
 	}
@@ -178,16 +184,6 @@ func updateBalance(address string, amount float64, side bool, timestamp int64) e
 
 	amount, _ = apparel.Round(amount)
 	client.Balance, _ = apparel.Round(client.Balance)
-
-	/*if side {
-		client.Balance += amount
-	} else {
-		if client.Balance < amount {
-			return errors.New("Blockchain contracts delegate contract update balance error 1")
-		} else {
-			client.Balance -= amount
-		}
-	}*/
 
 	switch side {
 	case true:

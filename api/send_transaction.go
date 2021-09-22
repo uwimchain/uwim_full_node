@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts/delegate_con"
 	"node/blockchain/contracts/delegate_con/delegate_validation"
@@ -43,7 +42,6 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 		apparel.TrimToLower(args.Type)
 
 	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
-	signature := crypt.SignMessageWithSecretKey(secretKey, []byte(args.From))
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	var tax float64 = 0
@@ -71,9 +69,6 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 		comment.Data = jsonString
 		amount = 0
 		break
-	/*case "confirmation_transaction":
-	amount = 0
-	break*/
 	case "smart_contract_abandonment":
 		amount = 1
 		break
@@ -91,39 +86,47 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 		break
 	}
 
-	transaction := *deep_actions.NewTx(
-		1,
-		apparel.GetNonce(timestamp),
-		"",
-		config.BlockHeight,
-		args.From,
-		args.To,
-		amount,
-		args.TokenLabel,
-		timestamp,
-		tax,
-		signature,
-		comment,
-	)
-
-	check := validateTransaction(args)
-	if check == 0 {
-		jsonString, err := json.Marshal(transaction)
-		if err != nil {
-			log.Println("Send Transaction error:", err)
-		}
-
-		sender.SendTx(jsonString)
-
-		if memory.IsValidator() {
-			storage.TransactionsMemory = append(storage.TransactionsMemory, transaction)
-		}
-
-		*result = "Transaction send"
-		return nil
+	tx := deep_actions.Tx{
+		Type:       1,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       args.From,
+		To:         args.To,
+		Amount:     amount,
+		TokenLabel: args.TokenLabel,
+		Timestamp:  timestamp,
+		Tax:        tax,
+		Signature:  nil,
+		Comment:    comment,
 	}
 
-	return errors.New(strconv.FormatInt(check, 10))
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	check := validateTransaction(args)
+	if check != 0 {
+		return errors.New(strconv.FormatInt(check, 10))
+	}
+
+	jsonString, _ = json.Marshal(tx)
+
+	sender.SendTx(tx)
+
+	if memory.IsValidator() {
+		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
+	}
+
+	*result = "Transaction send"
+	return nil
 }
 
 func validateTransaction(args *SendTransactionArgs) int64 {

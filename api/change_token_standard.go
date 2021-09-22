@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/config"
 	"node/crypt"
@@ -32,66 +31,62 @@ func (api *Api) ChangeTokenStandard(args *ChangeTokenStandardArgs, result *strin
 
 	proposer := crypt.AddressFromMnemonic(args.Mnemonic)
 
-	//if check := validateChangeTokenStandard(args); check != 0 {
-	//	return errors.New(strconv.FormatInt(check, 10))
-	//} else {
 	if check := validateChangeTokenStandard(args.Mnemonic, proposer, args.Standard); check != 0 {
 		return errors.New(strconv.FormatInt(check, 10))
-	} else {
-		signature := crypt.SignMessageWithSecretKey(
-			crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)),
-			//[]byte(args.Proposer),
-			[]byte(proposer),
-		)
-
-		//t := storage.GetAddressToken(args.Proposer)
-		t := storage.GetAddressToken(proposer)
-
-		if t.Label == "" {
-			return errors.New(strconv.FormatInt(9, 10))
-		} else {
-			token := deep_actions.Token{
-				Label:    t.Label,
-				Standard: args.Standard,
-			}
-
-			jsonString, err := json.Marshal(token)
-			if err != nil {
-				log.Println("Api change token standard error 1:", err)
-			} else {
-				timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-				transaction := deep_actions.NewTx(
-					3,
-					apparel.GetNonce(timestamp),
-					"",
-					config.BlockHeight,
-					//args.Proposer,
-					proposer,
-					config.NodeNdAddress,
-					config.ChangeTokenStandardCost,
-					"uwm",
-					timestamp,
-					0,
-					signature,
-					*deep_actions.NewComment(
-						"change_token_standard_transaction",
-						jsonString,
-					),
-				)
-
-				jsonString, err := json.Marshal(transaction)
-				if err != nil {
-					log.Println("Api change token standard error 2:", err)
-				} else {
-					sender.SendTx(jsonString)
-					storage.TransactionsMemory = append(storage.TransactionsMemory, *transaction)
-					*result = "Token standard changed"
-				}
-			}
-		}
-
-		return nil
 	}
+
+	t := storage.GetAddressToken(proposer)
+
+	if t.Label == "" {
+		return errors.New(strconv.FormatInt(9, 10))
+	}
+
+	token := deep_actions.Token{
+		Label:    t.Label,
+		Standard: args.Standard,
+	}
+
+	commentData, _ := json.Marshal(token)
+	comment := deep_actions.Comment{
+		Title: "change_token_standard_transaction",
+		Data:  commentData,
+	}
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+
+	tx := deep_actions.Tx{
+		Type:       3,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       proposer,
+		To:         config.NodeNdAddress,
+		Amount:     config.ChangeTokenStandardCost,
+		TokenLabel: "uwm",
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
+
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	sender.SendTx(tx)
+	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
+	*result = "Token standard changed"
+
+	return nil
 }
 
 // function for validate change token args form
@@ -184,7 +179,7 @@ func validateChangeTokenStandard(mnemonic, proposer string, standard int64) int6
 		return 9
 	}
 
-	if check := validateBalance(proposer, config.ChangeTokenStandardCost, config.BaseToken, false); check != 0 {
+	if check := validateBalance(proposer, config.ChangeTokenStandardCost, config.BaseToken, true); check != 0 {
 		return check
 	}
 

@@ -15,313 +15,15 @@ import (
 var (
 	db = contracts.Database{}
 
-	//TxDB        = db.NewConnection("blockchain/contracts/business_token_con/storage/business_token_contract_tx")
 	ContractsDB = db.NewConnection("blockchain/contracts/business_token_con/storage/business_token_contract_contracts")
 	EventDB     = db.NewConnection("blockchain/contracts/business_token_con/storage/business_token_contract_event")
 	ConfigDB    = db.NewConnection("blockchain/contracts/business_token_con/storage/business_token_contract_config")
-	//LogsDb      = db.NewConnection("blockchain/contracts/business_token_con/storage/business_token_contract_logs")
 )
-
-/*type BusinessSmartData struct {
-	ReqType string `json:"req_type"`
-	Data    []byte `json:"data"`
-}*/
-
-/*type BuyTokensData struct {
-	TxFrom   string  `json:"tx_from"`
-	TxTo     string  `json:"tx_to"`
-	TxAmount float64 `json:"tx_amount"`
-}*/
-
-/*type TakePercentAmountData struct {
-	TxFrom                             string  `json:"tx_from"`
-	TxTo                               string  `json:"tx_to"`
-	TxCommentDataTakePercentAmount     float64 `json:"tx_comment_data_take_percent_amount"`
-	TxCommentDataTakePercentTokenLabel string  `json:"tx_comment_data_take_percent_token_label"`
-}*/
-
-/*func Smart(smartData BusinessSmartData) error {
-	timestamp := apparel.TimestampUnix()
-	switch smartData.ReqType {
-	case "buy_tokens":
-	buyData := BuyTokensData{}
-	err := json.Unmarshal(smartData.Data, &buyData)
-	if err != nil {
-		return err
-	}
-
-	if crypt.IsAddressSmartContract(buyData.TxTo) {
-		publicKey, err := crypt.PublicKeyFromAddress(buyData.TxTo)
-		if err != nil {
-			return err
-		}
-
-		uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, publicKey)
-		if contracts.CheckAddressToken(uwAddress) {
-			token := contracts.GetAddressToken(uwAddress)
-
-			if token.Standard == 4 {
-				address := contracts.GetAddress(uwAddress)
-
-				for _, el := range address.Balance {
-					if el.TokenLabel == token.Label {
-						//tokenStandardCard := contracts.BusinessStandardCardData
-						tokenStandardCard := contracts.BusinessStandardCardData{}
-						err := json.Unmarshal([]byte(token.StandardCard), &tokenStandardCard)
-						if err != nil {
-							return err
-						}
-
-						amount := tokenStandardCard.Conversion * buyData.TxAmount
-						tax := apparel.CalcTax(amount * config.Tax)
-						nonce := apparel.GetNonce(apparel.UnixToString(timestamp))
-
-						commentSign, err := json.Marshal(contracts.NewBuyTokenSign(
-							config.NodeNdAddress,
-						))
-						if err != nil {
-							return err
-						}
-
-						transaction := contracts.NewTx(
-							1,
-							nonce,
-							"",
-							config.BlockHeight,
-							uwAddress,
-							buyData.TxFrom,
-							amount,
-							el.TokenLabel,
-							apparel.UnixToString(timestamp),
-							tax,
-							crypt.SignMessageWithSecretKey(
-								config.NodeSecretKey,
-								[]byte(config.NodeNdAddress),
-							),
-							*contracts.NewComment(
-								"default_transaction",
-								commentSign,
-							),
-						)
-
-						jsonString, err := json.Marshal(transaction)
-						if err != nil {
-							return err
-						}
-
-						newTxs(nonce, jsonString)
-
-						if tokenStandardCard.Partners != nil {
-							for _, partner := range tokenStandardCard.Partners {
-								amount := buyData.TxAmount * (partner.Percent / 100)
-								updateBalance(
-									buyData.TxTo,
-									partner.Address,
-									amount,
-									config.BaseToken,
-									timestamp,
-									true,
-								)
-							}
-						}
-
-						if memory.IsNodeProposer() {
-							contracts.SendTx(jsonString)
-							*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-	break
-	case "take_percent_amount":
-		takePercentAmountData := TakePercentAmountData{}
-		err := json.Unmarshal(smartData.Data, &takePercentAmountData)
-		if err != nil {
-			return err
-		}
-
-		if crypt.IsAddressSmartContract(takePercentAmountData.TxTo) {
-			publicKey, err := crypt.PublicKeyFromAddress(takePercentAmountData.TxTo)
-			if err != nil {
-				return err
-			}
-
-			uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, publicKey)
-			if contracts.CheckAddressToken(uwAddress) {
-				token := contracts.GetAddressToken(uwAddress)
-
-				if token.Standard == 4 {
-					jsonString := ContractsDB.Get(takePercentAmountData.TxTo).Value
-					var partners []Partner
-					err := json.Unmarshal([]byte(jsonString), &partners)
-					if err != nil {
-						return err
-					}
-
-					for _, partner := range partners {
-						if partner.Address == takePercentAmountData.TxFrom {
-							for _, coin := range partner.Balance {
-								if coin.TokenLabel == takePercentAmountData.TxCommentDataTakePercentTokenLabel {
-									if coin.Amount < takePercentAmountData.TxCommentDataTakePercentAmount {
-										return errors.New("low balance")
-									}
-
-									updateBalance(takePercentAmountData.TxTo, takePercentAmountData.TxFrom, takePercentAmountData.TxCommentDataTakePercentAmount, takePercentAmountData.TxCommentDataTakePercentTokenLabel, timestamp, false)
-
-									amount := takePercentAmountData.TxCommentDataTakePercentAmount
-									tax := apparel.CalcTax(amount * config.Tax)
-									nonce := apparel.GetNonce(apparel.UnixToString(timestamp))
-
-									commentSign, err := json.Marshal(contracts.NewBuyTokenSign(
-										config.NodeNdAddress,
-									))
-									if err != nil {
-										return err
-									}
-
-									transaction := contracts.NewTx(
-										5,
-										nonce,
-										"",
-										config.BlockHeight,
-										uwAddress,
-										takePercentAmountData.TxFrom,
-										amount,
-										takePercentAmountData.TxCommentDataTakePercentTokenLabel,
-										apparel.UnixToString(timestamp),
-										tax,
-										crypt.SignMessageWithSecretKey(
-											config.NodeSecretKey,
-											[]byte(config.NodeNdAddress),
-										),
-										*contracts.NewComment(
-											"refund_transaction",
-											commentSign,
-										),
-									)
-
-									jsonString, err := json.Marshal(transaction)
-									if err != nil {
-										return err
-									}
-
-									newTxs(nonce, jsonString)
-
-									if memory.IsNodeProposer() {
-										contracts.SendTx(jsonString)
-										*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
-									}
-
-									break
-								}
-							}
-
-							break
-						}
-					}
-				}
-			}
-		}
-
-		break
-	}
-
-	return nil
-}*/
-
-/*func newTxs(nonce int64, jsonString []byte) {
-	TxDB.Put(strconv.FormatInt(nonce, 10), string(jsonString))
-}*/
 
 type Partner struct {
 	Address string
 	Balance []contracts.Balance
 }
-
-/*func updateBalance(scAddress string, address string, amount float64, tokenLabel string, timestamp int64, side bool) {
-	jsonString := ContractsDB.Get(scAddress).Value
-	if jsonString == "" {
-		log(scAddress, contracts.Log{
-			Timestamp: timestamp,
-			Record:    "Update balance error: record is null",
-		})
-	} else {
-		var partners []Partner
-		err := json.Unmarshal([]byte(jsonString), &partners)
-		if err != nil {
-			log(scAddress, contracts.Log{
-				Timestamp: timestamp,
-				Record:    "Update balance error: json unmarshal",
-			})
-		} else {
-
-			for _, partner := range partners {
-				if partner.Address == address {
-					if side == true {
-						if searchTokenInBalance(partner.Balance, tokenLabel) {
-							for _, token := range partner.Balance {
-								if token.TokenLabel == tokenLabel {
-									token.Amount += amount
-								}
-							}
-							break
-						} else {
-							partner.Balance = append(partner.Balance, contracts.Balance{
-								TokenLabel: tokenLabel,
-								Amount:     amount,
-								UpdateTime: apparel.UnixToString(timestamp),
-							})
-							break
-						}
-					} else {
-						if searchTokenInBalance(partner.Balance, tokenLabel) {
-							for _, token := range partner.Balance {
-								if token.TokenLabel == tokenLabel {
-									token.Amount += amount
-								}
-							}
-							break
-						}
-					}
-				}
-			}
-
-			jsonString, err := json.Marshal(partners)
-			if err != nil {
-				log(scAddress, contracts.Log{
-					Timestamp: timestamp,
-					Record:    "Update balance error: json marshal",
-				})
-			} else {
-				ContractsDB.Put(scAddress, string(jsonString))
-			}
-		}
-	}
-
-}*/
-
-/*func log(scAddress string, log contracts.Log) {
-	logString, _ := json.Marshal(log)
-
-	LogsDb.Put(scAddress, string(logString))
-}*/
-
-/*func searchTokenInBalance(balance []contracts.Balance, tokenLabel string) bool {
-	if balance == nil {
-		return false
-	}
-
-	for _, token := range balance {
-		if token.TokenLabel == tokenLabel {
-			return true
-		}
-	}
-
-	return false
-}*/
 
 func UpdatePartners(scAddress string) error {
 	// get partners list on business smart-contract
@@ -397,7 +99,6 @@ func UpdatePartners(scAddress string) error {
 
 			if scBalance != nil {
 
-
 				for idx, i := range refundPartners {
 					if i.Balance != nil {
 						for jdx, j := range i.Balance {
@@ -418,7 +119,7 @@ func UpdatePartners(scAddress string) error {
 								return errors.New(fmt.Sprintf("error 7: %v", err))
 							}
 
-							transaction := contracts.NewTx(
+							tx := contracts.NewTx(
 								5,
 								apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
 								"",
@@ -429,24 +130,26 @@ func UpdatePartners(scAddress string) error {
 								j.TokenLabel,
 								strconv.FormatInt(timestamp, 10),
 								tax,
-								crypt.SignMessageWithSecretKey(
-									config.NodeSecretKey,
-									[]byte(config.NodeNdAddress),
-								),
+								nil,
 								*contracts.NewComment(
 									"refund_transaction",
 									commentSign,
 								),
 							)
 
-							jsonString, err := json.Marshal(transaction)
-							if err != nil {
-								return errors.New(fmt.Sprintf("error 8: %v", err))
-							}
-
+							jsonString, _ := json.Marshal(contracts.Tx{
+								Type:       tx.Type,
+								Nonce:      tx.Nonce,
+								From:       tx.From,
+								To:         tx.To,
+								Amount:     tx.Amount,
+								TokenLabel: tx.TokenLabel,
+								Comment:    tx.Comment,
+							})
+							tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 							if memory.IsNodeProposer() {
-								contracts.SendTx(jsonString)
-								*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
+								contracts.SendTx(*tx)
+								*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 							}
 						}
 					}
@@ -466,7 +169,7 @@ func UpdatePartners(scAddress string) error {
 							return errors.New(fmt.Sprintf("error 7: %v", err))
 						}
 
-						transaction := contracts.NewTx(
+						tx := contracts.NewTx(
 							5,
 							nonce,
 							"",
@@ -477,24 +180,27 @@ func UpdatePartners(scAddress string) error {
 							j.TokenLabel,
 							strconv.FormatInt(timestamp, 10),
 							tax,
-							crypt.SignMessageWithSecretKey(
-								config.NodeSecretKey,
-								[]byte(config.NodeNdAddress),
-							),
+							nil,
 							*contracts.NewComment(
 								"refund_transaction",
 								commentSign,
 							),
 						)
 
-						jsonString, err := json.Marshal(transaction)
-						if err != nil {
-							return errors.New(fmt.Sprintf("error 8: %v", err))
-						}
+						jsonString, _ := json.Marshal(contracts.Tx{
+							Type:       tx.Type,
+							From:       tx.From,
+							To:         tx.To,
+							Amount:     tx.Amount,
+							TokenLabel: tx.TokenLabel,
+							Tax:        tx.Tax,
+							Comment:    tx.Comment,
+						})
+						tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
 						if memory.IsNodeProposer() {
-							contracts.SendTx(jsonString)
-							*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
+							contracts.SendTx(*tx)
+							*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 						}
 					}
 				}
@@ -576,7 +282,7 @@ func ChangeStandard(scAddress string) error {
 					TokenLabel: j.TokenLabel,
 					Timestamp:  timestampD,
 					Tax:        0,
-					Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+					Signature:  nil,
 					Comment: *contracts.NewComment(
 						"refund_transaction",
 						nil,
@@ -628,7 +334,7 @@ func ChangeStandard(scAddress string) error {
 						TokenLabel: j.TokenLabel,
 						Timestamp:  timestampD,
 						Tax:        0,
-						Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+						Signature:  nil,
 						Comment: *contracts.NewComment(
 							"refund_transaction",
 							nil,
@@ -653,7 +359,7 @@ func ChangeStandard(scAddress string) error {
 				TokenLabel: i.TokenLabel,
 				Timestamp:  timestampD,
 				Tax:        0,
-				Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+				Signature:  nil,
 				Comment: *contracts.NewComment(
 					"refund_transaction",
 					nil,
@@ -665,7 +371,7 @@ func ChangeStandard(scAddress string) error {
 
 	if txs != nil && memory.IsNodeProposer() {
 		for _, i := range txs {
-			transaction := contracts.NewTx(
+			tx := contracts.NewTx(
 				i.Type,
 				i.Nonce,
 				i.HashTx,
@@ -680,10 +386,19 @@ func ChangeStandard(scAddress string) error {
 				i.Comment,
 			)
 
-			jsonString, _ := json.Marshal(transaction)
+			jsonString, _ := json.Marshal(contracts.Tx{
+				Type:       tx.Type,
+				From:       tx.From,
+				To:         tx.To,
+				Amount:     tx.Amount,
+				TokenLabel: tx.TokenLabel,
+				Tax:        tx.Tax,
+				Comment:    tx.Comment,
+			})
+			tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-			contracts.SendTx(jsonString)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
+			contracts.SendTx(*tx)
+			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 		}
 	}
 

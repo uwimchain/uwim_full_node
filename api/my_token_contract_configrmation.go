@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts/my_token_con"
 	"node/config"
@@ -44,6 +43,13 @@ func (api *Api) MyTokenContractConfirmation(args *MyTokenContractConfirmationArg
 
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
+	comment := deep_actions.Comment{
+		Title: "my_token_contract_confirmation_transaction",
+		Data:  nil,
+	}
+
 	tx := deep_actions.Tx{
 		Type:       1,
 		Nonce:      apparel.GetNonce(timestamp),
@@ -55,19 +61,21 @@ func (api *Api) MyTokenContractConfirmation(args *MyTokenContractConfirmationArg
 		TokenLabel: args.TokenLabel,
 		Timestamp:  timestamp,
 		Tax:        0,
-		Signature:  crypt.SignMessageWithSecretKey(crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)), []byte(uwAddress)),
-		Comment: deep_actions.Comment{
-			Title: "my_token_contract_confirmation_transaction",
-			Data:  nil,
-		},
+		Signature:  nil,
+		Comment:    comment,
 	}
 
-	jsonString, err := json.Marshal(tx)
-	if err != nil {
-		log.Println("Send Transaction error:", err)
-	}
-
-	sender.SendTx(jsonString)
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
 
 	if memory.IsValidator() {
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

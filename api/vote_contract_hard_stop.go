@@ -17,7 +17,7 @@ import (
 
 type VoteContractHardStopArgs struct {
 	Mnemonic  string `json:"mnemonic"`
-	VoteNonce string  `json:"vote_nonce"`
+	VoteNonce string `json:"vote_nonce"`
 }
 
 func (api *Api) VoteContractHardStop(args *VoteContractHardStopArgs, result *string) error {
@@ -39,6 +39,13 @@ func (api *Api) VoteContractHardStop(args *VoteContractHardStopArgs, result *str
 
 	timestamp := apparel.TimestampUnix()
 
+	comment := deep_actions.Comment{
+		Title: "vote_contract_hard_stop_transaction",
+		Data:  commentDataJson,
+	}
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
 	tx := deep_actions.Tx{
 		Type:       1,
 		Nonce:      apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
@@ -50,19 +57,21 @@ func (api *Api) VoteContractHardStop(args *VoteContractHardStopArgs, result *str
 		TokenLabel: config.BaseToken,
 		Timestamp:  strconv.FormatInt(timestamp, 10),
 		Tax:        0,
-		Signature:  crypt.SignMessageWithSecretKey(crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)), []byte(starterAddress)),
-		Comment: deep_actions.Comment{
-			Title: "vote_contract_hard_stop_transaction",
-			Data:  commentDataJson,
-		},
+		Signature:  nil,
+		Comment:    comment,
 	}
 
-	jsonString, err := json.Marshal(tx)
-	if err != nil {
-		log.Println("Send Transaction error 2:", err)
-	}
-
-	sender.SendTx(jsonString)
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
 
 	if memory.IsValidator() {
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

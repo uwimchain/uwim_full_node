@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts/business_token_con"
 	"node/config"
@@ -18,8 +17,8 @@ import (
 
 // SendTransactions method arguments
 type BusinessTokenContractGetPercentArgs struct {
-	Mnemonic   string `json:"mnemonic"`
-	TokenLabel string `json:"token_label"`
+	Mnemonic       string                 `json:"mnemonic"`
+	TokenLabel     string                 `json:"token_label"`
 	GetPercentData map[string]interface{} `json:"get_percent_data"`
 	//GetPercentTokenLabel string  `json:"get_percent_token_label"`
 	//GetPercentAmount     float64 `json:"get_percent_amount"`
@@ -45,6 +44,15 @@ func (api *Api) BusinessTokenContractGetPercent(args *BusinessTokenContractGetPe
 
 	commentData, _ := json.Marshal(args.GetPercentData)
 
+	comment := deep_actions.Comment{
+		Title: "business_token_contract_get_percent_transaction",
+		Data:  commentData,
+	}
+
+	amount := storage.GetBalanceForToken(uwAddress, scAddressToken.Label).Amount
+
+	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
+
 	tx := deep_actions.Tx{
 		Type:       1,
 		Nonce:      apparel.GetNonce(timestamp),
@@ -52,23 +60,25 @@ func (api *Api) BusinessTokenContractGetPercent(args *BusinessTokenContractGetPe
 		Height:     config.BlockHeight,
 		From:       uwAddress,
 		To:         scAddress,
-		Amount:     storage.GetBalanceForToken(uwAddress, scAddressToken.Label).Amount,
+		Amount:     amount,
 		TokenLabel: args.TokenLabel,
 		Timestamp:  timestamp,
 		Tax:        0,
-		Signature:  crypt.SignMessageWithSecretKey(crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic)), []byte(uwAddress)),
-		Comment: deep_actions.Comment{
-			Title: "business_token_contract_get_percent_transaction",
-			Data:  commentData,
-		},
+		Signature: nil,
+		Comment: comment,
 	}
 
-	jsonString, err := json.Marshal(tx)
-	if err != nil {
-		log.Println("Send Transaction error:", err)
-	}
-
-	sender.SendTx(jsonString)
+	jsonString, err := json.Marshal(deep_actions.Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+	sender.SendTx(tx)
 
 	if memory.IsValidator() {
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

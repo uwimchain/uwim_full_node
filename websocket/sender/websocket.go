@@ -8,15 +8,18 @@ import (
 	"node/crypt"
 	"node/memory"
 	"node/storage"
+	"node/storage/deep_actions"
 	"node/websocket"
 )
 
-func SendTx(tx []byte) {
+func SendTx(tx deep_actions.Tx) {
+	jsonString, _ := json.Marshal(tx)
+
 	message, _ := json.Marshal(websocket.RequestSign{
 		SenderIp: config.Ip,
 		Sign:     crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
 		Address:  config.NodeNdAddress,
-		Data:     tx,
+		Data:     jsonString,
 	})
 
 	requestsSender("NewTx", message)
@@ -76,8 +79,10 @@ func SendVersion(version []byte, ip string) {
 	}, "/ws")
 }
 
-func SendBlockVote(vote []byte) {
-	requestsSender("BlockVote", vote)
+func SendBlockVote(vote deep_actions.Vote) {
+	jsonString, _ := json.Marshal(vote)
+
+	requestsSender("BlockVote", jsonString)
 }
 
 func SendNewBlock() {

@@ -174,12 +174,21 @@ func blockVote(body string) {
 		log.Println("Websocket server reader block vote error:", err)
 	}
 	publicKey, _ := crypt.PublicKeyFromAddress(vote.Proposer)
-	if vote.BlockHeight == config.BlockHeight && crypt.VerifySign(publicKey, []byte(vote.Proposer), vote.Signature) {
+
+	jsonString, _ := json.Marshal(deep_actions.Vote{
+		Proposer:    vote.Proposer,
+		Signature:   nil,
+		BlockHeight: vote.BlockHeight,
+		Vote:        vote.Vote,
+	})
+
+	if vote.BlockHeight == config.BlockHeight && crypt.VerifySign(publicKey, jsonString, vote.Signature) {
 		for i := range storage.BlockMemory.Votes {
 			if storage.BlockMemory.Votes[i].Proposer == vote.Proposer {
-				storage.BlockMemory.Votes[i].Vote = vote.Vote
-				storage.BlockMemory.Votes[i].BlockHeight = vote.BlockHeight
-				storage.BlockMemory.Votes[i].Signature = vote.Signature
+				//storage.BlockMemory.Votes[i].Vote = vote.Vote
+				//storage.BlockMemory.Votes[i].BlockHeight = vote.BlockHeight
+				//storage.BlockMemory.Votes[i].Signature = vote.Signature
+				storage.BlockMemory.Votes[i] = vote
 				break
 			}
 		}
@@ -187,7 +196,7 @@ func blockVote(body string) {
 }
 
 func newTx(body string) error {
-	t := deep_actions.Tx{}
+	tx := deep_actions.Tx{}
 	r := websocket2.RequestSign{}
 
 	err := json.Unmarshal([]byte(body), &r)
@@ -200,22 +209,22 @@ func newTx(body string) error {
 		return errors.New(fmt.Sprintf("Websocket server reader new tx error 2: %v", err))
 	}
 
-	if err := json.Unmarshal(r.Data, &t); err != nil {
+	if err := json.Unmarshal(r.Data, &tx); err != nil {
 		return errors.New(fmt.Sprintf("Websocket server reader new tx error 3: %v", err))
 	}
 
-	if err := validateTx(t); err != nil {
+	if err := validateTx(tx); err != nil {
 		return errors.New(fmt.Sprintf("Websocket server reader new tx error 4: %v", err))
 	}
 
-	if t.Comment.Title == "refund_transaction" {
+	if tx.Comment.Title == "refund_transaction" {
 		log.Println("GG REFUND TRANSACTION")
 	}
 
-	storage.TransactionsMemory = append(storage.TransactionsMemory, t)
+	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
 	//if !memory.IsNodeValidator(r.SenderIp, r.Address) {
 	if !memory.IsNodeValidator(r.Address) {
-		sender.SendTx(r.Data)
+		sender.SendTx(tx)
 	}
 
 	return nil
@@ -515,7 +524,7 @@ func downloadBlocks(body string) {
 								scAddress := crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
 								switch standard {
 								case 0:
-									my_token_con.ChangeStandard(scAddress)
+									_ = my_token_con.ChangeStandard(scAddress)
 									break
 								case 1:
 									err := donate_token_con.ChangeStandard(scAddress)

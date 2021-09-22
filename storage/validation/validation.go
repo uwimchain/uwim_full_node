@@ -18,15 +18,25 @@ var (
 )
 
 // Функция для валидации блока
-func ValidateBlock(block deep_actions.Chain) error {
+//func ValidateBlock(block deep_actions.Chain) error {
+func ValidateBlock(block storage.Block) error {
 	if !memory.IsNodeProposer() {
-		if block.Header.Proposer != "" {
-			publicKey, _ := crypt.PublicKeyFromAddress(block.Header.Proposer)
-			if !crypt.VerifySign(publicKey, []byte(block.Header.Proposer), block.Header.ProposerSignature) {
-				return errors.New("Block validation error: proposer signature verify error.")
-			}
-		} else {
+		if block.Proposer == "" {
 			return errors.New("Block validation error: proposer is null.")
+		}
+		publicKey, _ := crypt.PublicKeyFromAddress(block.Proposer)
+		jsonString, _ := json.Marshal(storage.Block{
+			Height:            block.Height,
+			PrevHash:          block.PrevHash,
+			Timestamp:         block.Timestamp,
+			Proposer:          block.Proposer,
+			ProposerSignature: nil,
+			Body:              block.Body,
+			Votes:             block.Votes,
+		})
+
+		if !crypt.VerifySign(publicKey, jsonString, block.ProposerSignature) {
+			return errors.New("Block validation error: proposer signature verify error.")
 		}
 	}
 
@@ -38,31 +48,27 @@ func ValidateBlock(block deep_actions.Chain) error {
 		return errors.New("Block validation error: zero block not from the main node.")
 	}
 
-	if storage.GetPrevBlockHash() != block.Header.PrevHash {
+	if storage.GetPrevBlockHash() != block.PrevHash {
 		return errors.New("Block validation error: prev blocks hashes do not match.")
 	}
 
-	if storage.GetPrevBlockHash() != block.Header.PrevHash {
+	if storage.GetPrevBlockHash() != block.PrevHash {
 		return errors.New("Block validation error: prev blocks hashes do not match.")
 	}
 
-	if block.Header.Proposer != memory.Proposer {
+	if block.Proposer != memory.Proposer {
 		return errors.New("Block validation error: validator that sent the block for verification is not a proposer.")
 	}
 
-	if block.Header.TxCounter != int64(len(block.Txs)) {
-		return errors.New("Block validation error: number of transactions in the block header does not match the number of transactions in the block body.")
-	}
-
-	if len(block.Txs) <= 0 {
+	if len(block.Body) <= 0 {
 		return errors.New("Block validation error: block haven`t transactions.")
 	}
 
-	if err := ValidateTxs(block.Txs); err != nil {
+	if err := ValidateTxs(block.Body); err != nil {
 		return errors.New(fmt.Sprintf("Block transaction validation error: %v.", err))
 	}
 
-	for _, transaction := range block.Txs {
+	for _, transaction := range block.Body {
 		if transaction.Type != 2 && !storage.FindTxInMemory(transaction.Nonce) {
 			return errors.New("Block transaction validation error: transaction out of memory")
 		}
@@ -126,38 +132,35 @@ func fromAddressList(transactions []deep_actions.Tx) ([]deep_actions.Address, er
 
 // вспомогательная функция для валидации транзакции
 func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) error {
-	if transaction.Type != 5 {
-		publicKey, err := crypt.PublicKeyFromAddress(transaction.From)
-		if err != nil {
-			return errors.New("signature verify error 1")
-		}
-		if !crypt.VerifySign(publicKey, []byte(transaction.From), transaction.Signature) {
-			if transaction.Comment.Title == "default_transaction" && transaction.Comment.Data != nil {
-				buyTokenSign := deep_actions.BuyTokenSign{}
-				err := json.Unmarshal(transaction.Comment.Data, &buyTokenSign)
-				if err != nil {
-					return errors.New("signature verify error 2")
-				}
 
-				if !memory.IsNodeValidator(buyTokenSign.NodeAddress) {
-					return errors.New("signature verify error 3")
-				}
-
-				nodePublicKey, err := crypt.PublicKeyFromAddress(buyTokenSign.NodeAddress)
-				if err != nil {
-					return errors.New("signature verify error 4")
-				}
-
-				if !crypt.VerifySign(nodePublicKey, []byte(buyTokenSign.NodeAddress), transaction.Signature) {
-					return errors.New("signature verify error 5")
-				}
-			}
-		}
+	publicKey, err := crypt.PublicKeyFromAddress(transaction.From)
+	if err != nil {
+		return errors.New("incorrect sender address")
 	}
 
-	_, err := crypt.PublicKeyFromAddress(transaction.To)
+	if transaction.Type == 5 {
+		var sign deep_actions.BuyTokenSign
+		_ = json.Unmarshal(transaction.Comment.Data, &sign)
+		publicKey, _ = crypt.PublicKeyFromAddress(sign.NodeAddress)
+	}
+
+	_, err = crypt.PublicKeyFromAddress(transaction.To)
 	if err != nil {
 		return errors.New("incorrect recipient address")
+	}
+
+	jsonString, _ := json.Marshal(deep_actions.Tx{
+		Type:       transaction.Type,
+		Nonce:      transaction.Nonce,
+		From:       transaction.From,
+		To:         transaction.To,
+		Amount:     transaction.Amount,
+		TokenLabel: transaction.TokenLabel,
+		Comment:    transaction.Comment,
+	})
+
+	if !crypt.VerifySign(publicKey, jsonString, transaction.Signature) {
+		return errors.New(fmt.Sprintf("signature verify error %s", transaction.Comment.Title))
 	}
 
 	if transaction.Height == 0 {
@@ -213,24 +216,52 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 
 	// Валидация баланса пользователя в зависимости от выбранного токена транзакции
 	if address.Address == transaction.From {
-		sendToken := deep_actions.Balance{}
-		taxToken := deep_actions.Balance{}
-
-		for _, token := range address.Balance {
-			if token.TokenLabel == transaction.TokenLabel {
-				sendToken = token
+		if transaction.TokenLabel == config.BaseToken {
+			for _, i := range address.Balance {
+				if i.TokenLabel == config.BaseToken {
+					if i.Amount < transaction.Amount+transaction.Tax {
+						return errors.New(fmt.Sprintf("low balance for token %s", config.BaseToken))
+					}
+				}
 			}
+		} else {
+			for _, i := range address.Balance {
+				if i.TokenLabel == transaction.TokenLabel {
+					if i.Amount < transaction.Amount {
+						return errors.New(fmt.Sprintf("low balance for token %s", i.TokenLabel))
+					}
+				}
 
-			if token.TokenLabel == config.BaseToken {
-				taxToken = token
+				if i.TokenLabel == config.BaseToken {
+					if i.Amount < transaction.Tax {
+						return errors.New(fmt.Sprintf("low balance for tax token %s", i.TokenLabel))
+					}
+				}
 			}
 		}
 
-		if sendToken.Amount < transaction.Amount {
-			return errors.New(fmt.Sprintf("low balance %g %s %s %s", sendToken.Amount, sendToken.TokenLabel, transaction.TokenLabel, transaction.From))
+		//if sendToken.Amount < transaction.Amount {
+		//	return errors.New(fmt.Sprintf("low balance %g %s %s %s", sendToken.Amount, sendToken.TokenLabel, transaction.TokenLabel, transaction.From))
+		//}
+
+		zeroTaxCommentTitles := []string{
+			"undelegate_contract_transaction",
+			"refund_transaction",
+			"my_token_contract_confirmation_transaction",
+			"my_token_contract_get_percent_transaction",
+			"business_token_contract_get_percent_transaction",
+			"trade_token_contract_get_liq_transaction",
+			"trade_token_contract_get_com_transaction",
+			"trade_token_contract_fill_config_transaction",
+			"vote_contract_start_transaction",
+			"vote_contract_hard_stop_transaction",
 		}
 
-		switch transaction.Comment.Title {
+		if CheckInStringArray(zeroTaxCommentTitles, transaction.Comment.Title) && transaction.Tax != 0 {
+			return errors.New("invalid transaction tax amount")
+		}
+
+		/*switch transaction.Comment.Title {
 		case "undelegate_contract_transaction":
 		case "refund_transaction":
 		case "my_token_contract_confirmation_transaction":
@@ -245,19 +276,33 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 				return errors.New("invalid transaction tax amount")
 			}
 			break
-		case "holder_contract_get_transaction":
-		case "holder_contract_add_transaction":
-			if taxToken.Amount < transaction.Amount {
-				return errors.New(fmt.Sprintf("low balance for tax. need %g there is %g for transaction with type %s", transaction.Tax, taxToken.Amount, transaction.Comment.Title))
-			}
-			break
-		default:
-			if taxToken.Amount < apparel.CalcTax(transaction.Amount) {
-				return errors.New(fmt.Sprintf("low balance for tax. need %g there is %g for transaction with type %s", transaction.Tax, taxToken.Amount, transaction.Comment.Title))
-			}
-			break
-		}
+			//case "holder_contract_get_transaction":
+			//case "holder_contract_add_transaction":
+			//	if taxToken.Amount < transaction.Amount {
+			//		return errors.New(fmt.Sprintf("low balance for tax. need %g there is %g for transaction with type %s", transaction.Tax, taxToken.Amount, transaction.Comment.Title))
+			//	}
+			//	break
+			//default:
+			//	if taxToken.Amount < apparel.CalcTax(transaction.Amount) {
+			//		return errors.New(fmt.Sprintf("low balance for tax. need %g there is %g for transaction with type %s", transaction.Tax, taxToken.Amount, transaction.Comment.Title))
+			//	}
+			//	break
+		}*/
 	}
 
 	return nil
+}
+
+func CheckInStringArray(stringArray []string, findable string) bool {
+	if stringArray == nil {
+		return false
+	}
+
+	for _, i := range stringArray {
+		if i == findable {
+			return true
+		}
+	}
+
+	return false
 }

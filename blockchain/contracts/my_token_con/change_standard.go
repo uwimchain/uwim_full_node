@@ -71,7 +71,7 @@ func changeStandard(scAddress string) error {
 					TokenLabel: j.TokenLabel,
 					Timestamp:  timestamp,
 					Tax:        0,
-					Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+					Signature:  nil,
 					Comment:    *contracts.NewComment("refund_transaction", nil),
 				})
 
@@ -105,19 +105,19 @@ func changeStandard(scAddress string) error {
 		for _, i := range allTxsAmount {
 			for _, j := range scAddressBalance {
 				if i.TokenLabel == j.TokenLabel {
-					timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
+					timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 					tx := contracts.Tx{
 						Type:       5,
-						Nonce:      apparel.GetNonce(timestampD),
+						Nonce:      apparel.GetNonce(timestamp),
 						HashTx:     "",
 						Height:     config.BlockHeight,
 						From:       scAddress,
 						To:         scAddressToken.Proposer,
 						Amount:     j.Amount - i.Amount,
 						TokenLabel: j.TokenLabel,
-						Timestamp:  timestampD,
+						Timestamp:  timestamp,
 						Tax:        0,
-						Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+						Signature:  nil,
 						Comment: *contracts.NewComment(
 							"refund_transaction",
 							nil,
@@ -130,19 +130,19 @@ func changeStandard(scAddress string) error {
 		}
 	} else {
 		for _, i := range scAddressBalance {
-			timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
+			timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 			tx := contracts.Tx{
 				Type:       5,
-				Nonce:      apparel.GetNonce(timestampD),
+				Nonce:      apparel.GetNonce(timestamp),
 				HashTx:     "",
 				Height:     config.BlockHeight,
 				From:       scAddress,
 				To:         scAddressToken.Proposer,
 				Amount:     i.Amount,
 				TokenLabel: i.TokenLabel,
-				Timestamp:  timestampD,
+				Timestamp:  timestamp,
 				Tax:        0,
-				Signature:  crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
+				Signature:  nil,
 				Comment: *contracts.NewComment(
 					"refund_transaction",
 					nil,
@@ -155,7 +155,7 @@ func changeStandard(scAddress string) error {
 	if txs != nil && memory.IsNodeProposer() {
 		for _, j := range txs {
 
-			transaction := contracts.NewTx(
+			tx := contracts.NewTx(
 				j.Type,
 				j.Nonce,
 				"",
@@ -170,10 +170,19 @@ func changeStandard(scAddress string) error {
 				j.Comment,
 			)
 
-			jsonString, _ := json.Marshal(transaction)
+			jsonString, _ := json.Marshal(contracts.Tx{
+				Type:       tx.Type,
+				Nonce:      tx.Nonce,
+				From:       tx.From,
+				To:         tx.To,
+				Amount:     tx.Amount,
+				TokenLabel: tx.TokenLabel,
+				Comment:    tx.Comment,
+			})
+			tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-			contracts.SendTx(jsonString)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *transaction)
+			contracts.SendTx(*tx)
+			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 		}
 	}
 
