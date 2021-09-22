@@ -23,7 +23,7 @@ var (
 	Tax                   float64 = 0.001
 	StorageMemoryLifeIter int64   = 30       // blocks
 	MaxStorageMemory      int64   = 50       // transactions
-	Version               string  = "v1.5.2" // build version
+	Version               string  = "v1.5.3" // build version
 
 	// Reward config
 	RewardCoefficientStage1 float64 = 1.038107 / ((60 * 60 * 24 / 6) / float64(CalculateBlockWriteTime()))
