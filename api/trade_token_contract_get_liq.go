@@ -15,7 +15,6 @@ import (
 	"strconv"
 )
 
-// SendTransactions method arguments
 type TradeTokenContractGetLiqArgs struct {
 	Mnemonic   string `json:"mnemonic"`
 	ScAddress  string `json:"sc_address"`

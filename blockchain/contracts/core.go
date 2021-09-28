@@ -28,14 +28,12 @@ var (
 	CheckAddressToken      = storage.CheckAddressToken
 	GetAddressToken        = storage.GetAddressToken
 	DonateStandardCardData = deep_actions.DonateStandardCardData{}
-	//BusinessStandardCardData = deep_actions.BusinessStandardCardData{}
 	NewBuyTokenSign    = deep_actions.NewBuyTokenSign
 	GetBalanceForToken = storage.GetBalanceForToken
 	GetBalance         = storage.GetBalance
 )
 
 type Config struct {
-	/*Commission    float64 `json:"commission"`*/
 	LastEventHash string      `json:"last_event_hash"`
 	ConfigData    interface{} `json:"config_data"`
 }
@@ -73,7 +71,6 @@ func GetTokenInfoForScAddress(scAddress string) deep_actions.Token {
 	return token
 }
 
-// function for refund user token pairs
 func RefundTransaction(scAddress string, uwAddress string, amount float64, tokenLabel string) error { // test
 	if !memory.IsNodeProposer() {
 		return nil

@@ -130,11 +130,9 @@ func IsValidator() bool {
 	return false
 }
 
-//func IsNodeValidator(ip string, address string) bool {
 func IsNodeValidator(address string) bool {
 	if ValidatorsMemory != nil {
 		for _, validator := range ValidatorsMemory {
-			//if validator.Address == address && validator.Ip == ip {
 			if validator.Address == address {
 				return true
 			}

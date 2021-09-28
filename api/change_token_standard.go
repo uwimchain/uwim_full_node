@@ -13,16 +13,9 @@ import (
 	"strconv"
 )
 
-// CreateToken method arguments
 type ChangeTokenStandardArgs struct {
 	Mnemonic string `json:"mnemonic"`
-	// 0 - My
-	// 1 - Donate
-	// 3 - StartUp
-	// 4 - Business
-	// 5 - Trade
 	Standard int64 `json:"standard"`
-	//Proposer string `json:"proposer"`
 }
 
 func (api *Api) ChangeTokenStandard(args *ChangeTokenStandardArgs, result *string) error {
@@ -89,59 +82,6 @@ func (api *Api) ChangeTokenStandard(args *ChangeTokenStandardArgs, result *strin
 	return nil
 }
 
-// function for validate change token args form
-// returns:
-// 0 - ok
-// 1 - Запрос отправлен не на главную ноду
-// 2: Неверная или некорректная мнемофраза
-// 3: Неверный или некорректный адрес
-// 4: Мнемофраза не совпадает с адресом
-// 5: Указан неверный стандарт токена
-// 6: Не хвататет средств для совершения операции
-/*func validateChangeTokenStandard(args *ChangeTokenStandardArgs) int64 {
-	if !memory.IsMainNode() {
-		return 1
-	}
-
-	if check := validateMnemonic(args.Mnemonic, args.Proposer); check != 0 {
-		return check
-	}
-
-	//if !apparel.SearchInArray([]int64{0, 1, 2, 3, 4}, args.Standard) {
-	if !apparel.SearchInArray([]int64{1, 3, 4, 5}, args.Standard) {
-		return 5
-	}
-
-	t := storage.GetAddressToken(args.Proposer)
-	if !storage.CheckToken(t.Label) {
-		return 7
-	}
-
-	if args.Standard == t.Standard {
-		return 8
-	}
-
-	//if t.Standard == 0 && !apparel.SearchInArray([]int64{1, 2}, args.Standard) {
-	if t.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, args.Standard) {
-		return 9
-	}
-
-	if t.Standard == 1 && !apparel.SearchInArray([]int64{3, 4, 5}, args.Standard) {
-		return 9
-	}
-
-	//if t.Standard == 3 && args.Standard != 4 {
-	if t.Standard == 3 && !apparel.SearchInArray([]int64{4, 6}, args.Standard) {
-		return 9
-	}
-
-	if check := validateBalance(args.Proposer, config.ChangeTokenStandardCost, config.BaseToken, false); check != 0 {
-		return check
-	}
-
-	return 0
-}*/
-
 func validateChangeTokenStandard(mnemonic, proposer string, standard int64) int64 {
 	if !memory.IsMainNode() {
 		return 1
@@ -151,7 +91,6 @@ func validateChangeTokenStandard(mnemonic, proposer string, standard int64) int6
 		return check
 	}
 
-	//if !apparel.SearchInArray([]int64{0, 1, 2, 3, 4}, args.Standard) {
 	if !apparel.SearchInArray([]int64{1, 3, 4, 5}, standard) {
 		return 5
 	}
@@ -165,7 +104,6 @@ func validateChangeTokenStandard(mnemonic, proposer string, standard int64) int6
 		return 8
 	}
 
-	//if t.Standard == 0 && !apparel.SearchInArray([]int64{1, 2}, args.Standard) {
 	if t.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, standard) {
 		return 9
 	}
@@ -174,7 +112,6 @@ func validateChangeTokenStandard(mnemonic, proposer string, standard int64) int6
 		return 9
 	}
 
-	//if t.Standard == 3 && args.Standard != 4 {
 	if t.Standard == 3 && !apparel.SearchInArray([]int64{4, 6}, standard) {
 		return 9
 	}

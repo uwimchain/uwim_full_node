@@ -133,7 +133,6 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 			return errors.New("change token standard data error")
 		}
 
-		//if !apparel.SearchInArray([]int64{0, 1, 2, 3, 4}, t.Standard) {
 		if !apparel.SearchInArray([]int64{0, 1, 3, 4, 5}, token.Standard) {
 			return errors.New("invalid token standard 1")
 		}
@@ -156,18 +155,14 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 			return errors.New("invalid token standard 5")
 		}
 
-		//if token.Standard == 0 && !apparel.SearchInArray([]int64{1, 2}, t.Standard) {
 		if token.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, token.Standard) {
 			return errors.New("invalid token standard 6")
 		}
 
-		//if apparel.SearchInArray([]int64{1, 2}, token.Standard) && !apparel.SearchInArray([]int64{1, 2, 3, 4}, t.Standard) {
 		if token.Standard == 1 && !apparel.SearchInArray([]int64{3, 4, 5}, token.Standard) {
 			return errors.New("invalid token standard 7")
 		}
 
-		//if apparel.SearchInArray([]int64{3, 4}, token.Standard) && !apparel.SearchInArray([]int64{3, 4}, t.Standard) {
-		//if token.Standard == 3 && t.Standard != 4 {
 		if token.Standard == 3 && !apparel.SearchInArray([]int64{4, 5}, token.Standard) {
 			return errors.New("invalid token standard 8")
 		}

@@ -15,24 +15,24 @@ import (
 )
 
 type FillTokenCardArgs struct {
-	Mnemonic string `json:"mnemonic"` // Мнемофраза
-	Proposer string `json:"proposer"` // Владелец токена
+	Mnemonic string `json:"mnemonic"`
+	Proposer string `json:"proposer"`
 
-	FullName   string                   `json:"full_name"`  // Фамилия Имя Отчество
-	BirthDay   string                   `json:"birthday"`   // Дата рождения
-	Gender     string                   `json:"gender"`     // Пол
-	Country    string                   `json:"country"`    // Страна
-	Region     string                   `json:"region"`     // Область
-	City       string                   `json:"city"`       // Город
-	Social     *deep_actions.Social     `json:"social"`     // Социальные сети
-	Messengers *deep_actions.Messengers `json:"messengers"` // Месседжеры
-	Email      string                   `json:"email"`      // Эллектронная почта
-	Site       string                   `json:"site"`       // Сайт
-	Hashtags   string                   `json:"hashtags"`   // Интересы (хэштэги)
-	WorkPlace  string                   `json:"work_place"` // Место работы
-	School     string                   `json:"school"`     // Школа
-	Education  string                   `json:"education"`  // Образование (Колледж/Университет)
-	Comment    string                   `json:"comment"`    // Комментарий
+	FullName   string                   `json:"full_name"`
+	BirthDay   string                   `json:"birthday"`
+	Gender     string                   `json:"gender"`
+	Country    string                   `json:"country"`
+	Region     string                   `json:"region"`
+	City       string                   `json:"city"`
+	Social     *deep_actions.Social     `json:"social"`
+	Messengers *deep_actions.Messengers `json:"messengers"`
+	Email      string                   `json:"email"`
+	Site       string                   `json:"site"`
+	Hashtags   string                   `json:"hashtags"`
+	WorkPlace  string                   `json:"work_place"`
+	School     string                   `json:"school"`
+	Education  string                   `json:"education"`
+	Comment    string                   `json:"comment"`
 }
 
 func (api *Api) FillTokenCard(args *FillTokenCardArgs, result *string) error {
@@ -59,7 +59,6 @@ func (api *Api) FillTokenCard(args *FillTokenCardArgs, result *string) error {
 		City:       args.City,
 		Social:     args.Social,
 		Messengers: args.Messengers,
-		//Photos:     args.Photos,
 		Email:     args.Email,
 		Site:      args.Site,
 		Hashtags:  args.Hashtags,
@@ -108,15 +107,6 @@ func (api *Api) FillTokenCard(args *FillTokenCardArgs, result *string) error {
 	return nil
 }
 
-// Функция для валидации данных карты токена
-// Возвращает:
-// 0: Данные валидны
-// 1: Запрос отправлен не на главную ноду
-// 2: Неверная или некорректная мнемофраза
-// 3: Неверный или некорректный адрес
-// 4: Мнемофраза не совпадает с адресом
-// 5:
-// 6: Не хвататет средств для совершения операции
 func validateCardFields(args *FillTokenCardArgs) int64 {
 	if !memory.IsMainNode() {
 		return 1

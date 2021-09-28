@@ -12,7 +12,6 @@ import (
 	"strconv"
 )
 
-// function for get commission
 func GetCom(args *GetArgs) error {
 	err := getCom(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.BlockHeight)
 	if err != nil {
@@ -53,7 +52,6 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	}
 
 	timestamp := apparel.TimestampUnix()
-	//timestampD := strconv.FormatInt(timestamp, 10)
 
 	check := -1
 	var txAmount float64 = 0

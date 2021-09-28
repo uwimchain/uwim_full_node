@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// GetAddressFromAddress method arguments
 type GetAddressFromAddressArgs struct {
 	Address string `json:"address"`
 	Prefix  string `json:"prefix"`

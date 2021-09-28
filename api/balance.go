@@ -18,7 +18,6 @@ import (
 	"strconv"
 )
 
-// Balance method arguments
 type BalanceArgs struct {
 	Address string `json:"address"`
 }
@@ -183,14 +182,6 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 							percent["token_sc_address"] = tokenScAddress
 							percent["token_sc_balance"] = storage.GetBalance(tokenScAddress)
 							percents["my"] = append(percents["my"], percent)
-							//tokensMyPercents = append(tokensMyPercents, MyPercent{
-							//	TokenLabel:     i.TokenLabel,
-							//	Percent:        percent,
-							//	TokenScBalance: storage.GetBalance(tokenScAddress),
-							//	Confirmation:   confirmation,
-							//	Token:          t,
-							//	TokenScAddress: tokenScAddress,
-							//})
 
 						}
 						break
@@ -230,15 +221,6 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 								percent["token_sc_address"] = tokenScAddress
 								percent["token_sc_balance"] = businessPercentBalance
 								percents["business"] = append(percents["business"], percent)
-								/*businessPercent := BusinessPercent{
-									TokenLabel:     i.TokenLabel,
-									Percent:        businessPercentAmount,
-									TokenScBalance: businessPercentBalance,
-									Token:          t,
-									TokenScAddress: tokenScAddress,
-								}
-
-								tokensBusinessPercents = append(tokensBusinessPercents, businessPercent)*/
 
 							}
 						}
@@ -262,42 +244,6 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 						percent["holder_pool"] = holderPool
 						percent["sc_pool"] = scAddressPool
 						percents["trade"] = append(percents["trade"], percent)
-
-						/*holderPoolJson, err := trade_token_con.GetHolder(tokenScAddress, address.Address)
-						scAddressPoolJson := trade_token_con.GetScPool(tokenScAddress)
-						var (
-							holderPool    trade_token_con.Pool
-							scAddressPool trade_token_con.Pool
-						)
-
-						if err != nil {
-							log.Println("Api Balance error 8: ", err)
-							break
-						}
-
-						if holderPoolJson != nil {
-							err := json.Unmarshal(holderPoolJson, &holderPool)
-							if err != nil {
-								log.Println("Api Balance error 9: ", err)
-								break
-							}
-						}
-
-						if scAddressPoolJson != nil {
-							err := json.Unmarshal(scAddressPoolJson, &scAddressPool)
-							if err != nil {
-								log.Println("Api Balance error 10: ", err)
-								break
-							}
-						}
-
-						tokensTradePercents = append(tokensTradePercents, TradePercent{
-							TokenLabel:     i.TokenLabel,
-							HolderPool:     holderPool,
-							ScPool:         scAddressPool,
-							Token:          t,
-							TokenScAddress: tokenScAddress,
-						})*/
 					}
 				}
 			}
@@ -317,12 +263,7 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 				UpdateTime: apparel.UnixToString(delegateBalance.UpdateTime),
 			},
 			Percents: percents,
-			/*TokensMyPercents:       tokensMyPercents,
-			TokensBusinessPercents: tokensBusinessPercents,
-			TokensTradePercents:    tokensTradePercents,
-			TokensPartners:         tokensPartners,*/
 			TokenContractData: tokenContractData,
-			//TokenScInfo:            tokenScInfo,
 		})
 		if err != nil {
 			log.Println("Api Balance error 8", err)

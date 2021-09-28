@@ -16,7 +16,6 @@ import (
 	"strings"
 )
 
-// CreateToken method arguments
 type RenameTokenArgs struct {
 	Mnemonic string `json:"mnemonic"`
 	Proposer string `json:"proposer"`
@@ -90,20 +89,6 @@ func (api *Api) RenameToken(args *RenameTokenArgs, result *string) error {
 	return nil
 }
 
-// Функция валидации данных запроса на создание токена.
-// Возвращает:
-// 0: Данные верны
-// 1: Запрос на создание токена отправлен не на главную ноду
-// 2: Неверная или некорректная мнемофраза
-// 3: Неверный или некорректный адрес
-// 4: Мнемофраза не совпадает с адресом
-// 5: Label не задан
-// 6: Такого токена не существует
-// 7: Название токена не задано
-// 8: Название токена должно быть меньше 80 символов
-// 9: Недостаточно средств для совершения операции
-// 10: У пользователя нет токена
-// 11: Попытка переименовать основную валюту
 func validateRenameToken(args *RenameTokenArgs) int64 {
 	if !memory.IsMainNode() {
 		return 1

@@ -62,13 +62,11 @@ func ParseInt64(stringForParsing string) int64 {
 }
 
 func GetNonce(timestampD string) int64 {
-	//parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
 	timestamp, err := strconv.ParseInt(timestampD, 10, 64)
 	if err != nil {
 		log.Println("Get nonce error:", err)
 	}
 
-	//nonce := parsedTime.UnixNano() + rand.Int63()
 	nonce := timestamp + rand.Int63()
 	if nonce < 0 {
 		nonce *= -1

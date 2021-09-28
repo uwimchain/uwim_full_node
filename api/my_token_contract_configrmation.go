@@ -16,7 +16,6 @@ import (
 	"strconv"
 )
 
-// SendTransactions method arguments
 type MyTokenContractConfirmationArgs struct {
 	Mnemonic   string `json:"mnemonic"`
 	TokenLabel string `json:"token_label"`

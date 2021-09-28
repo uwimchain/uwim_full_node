@@ -17,8 +17,6 @@ var (
 	a = deep_actions.Address{}
 )
 
-// Функция для валидации блока
-//func ValidateBlock(block deep_actions.Chain) error {
 func ValidateBlock(block storage.Block) error {
 	if !memory.IsNodeProposer() {
 		if block.Proposer == "" {
@@ -77,7 +75,6 @@ func ValidateBlock(block storage.Block) error {
 	return nil
 }
 
-// Функция для валидации полученного списка транзакций
 func ValidateTxs(transactions []deep_actions.Tx) error {
 	if addresses, err := fromAddressList(transactions); err != nil {
 		return err
@@ -103,8 +100,6 @@ func ValidateTxs(transactions []deep_actions.Tx) error {
 	return nil
 }
 
-//Apparel
-// вспомогательная функция для получения все адресов отправителей из введённого списка транзакций для произведения дальнейшей валидации
 func fromAddressList(transactions []deep_actions.Tx) ([]deep_actions.Address, error) {
 	var allTransactionsAddresses []deep_actions.Address
 	var transactionsAddresses []deep_actions.Address
@@ -130,7 +125,6 @@ func fromAddressList(transactions []deep_actions.Tx) ([]deep_actions.Address, er
 	return transactionsAddresses, nil
 }
 
-// вспомогательная функция для валидации транзакции
 func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) error {
 
 	publicKey, err := crypt.PublicKeyFromAddress(transaction.From)
@@ -182,13 +176,10 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		return errors.New(fmt.Sprintf("token \"%s\" does not exist", transaction.TokenLabel))
 	}
 
-	// Валидация на случай, если транзакция отправлена с Genesis адреса, но не является наградой
 	if transaction.From == config.GenesisAddress && transaction.Type != 2 {
 		return errors.New("transaction from the genesis address")
 	}
 
-	// Валидация комментария к транзакции в зависимости от её типа
-	// и проверка соотвествия типа транзакции заголовку её комментария
 	switch transaction.Type {
 	case 1:
 		if err := validateTransactionType1(transaction); err != nil {
@@ -214,7 +205,6 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		return errors.New("transaction type is empty")
 	}
 
-	// Валидация баланса пользователя в зависимости от выбранного токена транзакции
 	if address.Address == transaction.From {
 		if transaction.TokenLabel == config.BaseToken {
 			for _, i := range address.Balance {
@@ -240,10 +230,6 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 			}
 		}
 
-		//if sendToken.Amount < transaction.Amount {
-		//	return errors.New(fmt.Sprintf("low balance %g %s %s %s", sendToken.Amount, sendToken.TokenLabel, transaction.TokenLabel, transaction.From))
-		//}
-
 		zeroTaxCommentTitles := []string{
 			"undelegate_contract_transaction",
 			"refund_transaction",
@@ -260,34 +246,6 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		if CheckInStringArray(zeroTaxCommentTitles, transaction.Comment.Title) && transaction.Tax != 0 {
 			return errors.New("invalid transaction tax amount")
 		}
-
-		/*switch transaction.Comment.Title {
-		case "undelegate_contract_transaction":
-		case "refund_transaction":
-		case "my_token_contract_confirmation_transaction":
-		case "my_token_contract_get_percent_transaction":
-		case "business_token_contract_get_percent_transaction":
-		case "trade_token_contract_get_liq_transaction":
-		case "trade_token_contract_get_com_transaction":
-		case "trade_token_contract_fill_config_transaction":
-		case "vote_contract_start_transaction":
-		case "vote_contract_hard_stop_transaction":
-			if transaction.Tax != 0 {
-				return errors.New("invalid transaction tax amount")
-			}
-			break
-			//case "holder_contract_get_transaction":
-			//case "holder_contract_add_transaction":
-			//	if taxToken.Amount < transaction.Amount {
-			//		return errors.New(fmt.Sprintf("low balance for tax. need %g there is %g for transaction with type %s", transaction.Tax, taxToken.Amount, transaction.Comment.Title))
-			//	}
-			//	break
-			//default:
-			//	if taxToken.Amount < apparel.CalcTax(transaction.Amount) {
-			//		return errors.New(fmt.Sprintf("low balance for tax. need %g there is %g for transaction with type %s", transaction.Tax, taxToken.Amount, transaction.Comment.Title))
-			//	}
-			//	break
-		}*/
 	}
 
 	return nil

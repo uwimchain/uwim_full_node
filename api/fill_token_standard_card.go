@@ -15,9 +15,9 @@ import (
 )
 
 type FillTokenStandardCardArgs struct {
-	Mnemonic             string `json:"mnemonic"`           // Мнемофраза
-	Proposer             string `json:"proposer"`           // Владелец токена
-	StandardCardDataJson string `json:"standard_card_data"` // Данные карточки стандарта токена
+	Mnemonic             string `json:"mnemonic"`
+	Proposer             string `json:"proposer"`
+	StandardCardDataJson string `json:"standard_card_data"`
 }
 
 func (api *Api) FillTokenStandardCard(args *FillTokenStandardCardArgs, result *string) error {
@@ -69,15 +69,6 @@ func (api *Api) FillTokenStandardCard(args *FillTokenStandardCardArgs, result *s
 	return nil
 }
 
-// Функция для валидации данных карты стандарта токена
-// Возвращает:
-// 0: Данные валидны
-// 1: Запрос отправлен не на главную ноду
-// 2: Неверная или некорректная мнемофраза
-// 3: Неверный или некорректный адрес
-// 4: Мнемофраза не совпадает с адресом
-// 5:
-// 6: Не хвататет средств для совершения операции
 func validateStandardCardFields(args *FillTokenStandardCardArgs) int64 {
 	if !memory.IsMainNode() {
 		return 1
@@ -97,12 +88,6 @@ func validateStandardCardFields(args *FillTokenStandardCardArgs) int64 {
 
 	token := storage.GetAddressToken(args.Proposer)
 	switch token.Standard {
-	case 0:
-		if check := validate0standard(args.StandardCardDataJson); check != 0 {
-
-			return check
-		}
-		break
 	case 2:
 		if check := validate2standard(args.StandardCardDataJson); check != 0 {
 			return check
@@ -122,24 +107,6 @@ func validateStandardCardFields(args *FillTokenStandardCardArgs) int64 {
 
 	return 0
 }
-
-func validate0standard(data string) int64 {
-	//if data == "" {
-	//	return 101
-	//}
-
-	return 0
-}
-
-/*func validate1standard(data string) int64 {
-	tokenStandardCard := deep_actions.ThxStandardCardData{}
-	err := json.Unmarshal([]byte(data), &tokenStandardCard)
-	if err != nil {
-		return 111
-	}
-
-	return 0
-}*/
 
 func validate2standard(data string) int64 {
 	tokenStandardCard := deep_actions.DonateStandardCardData{}

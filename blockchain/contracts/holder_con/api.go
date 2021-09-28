@@ -61,7 +61,6 @@ func ValidateGet(recipientAddress string) int64 {
 		if i.RecipientAddress == recipientAddress && i.GetBlockHeight <= config.BlockHeight {
 			check = true
 			allTxsAmount += i.Amount
-			//break
 		}
 	}
 

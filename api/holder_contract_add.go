@@ -15,8 +15,6 @@ import (
 	"strconv"
 )
 
-// добавить в коммент количество монет, которое пользователь хочет внести и адрес на который хочет внести
-
 type HolderContractAddArgs struct {
 	Mnemonic         string  `json:"mnemonic"`
 	DepositorAddress string  `json:"depositor_address"`

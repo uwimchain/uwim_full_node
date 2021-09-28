@@ -15,7 +15,6 @@ import (
 	"strconv"
 )
 
-// SendTransactions method arguments
 type MyTokenContractGetPercentArgs struct {
 	Mnemonic   string `json:"mnemonic"`
 	TokenLabel string `json:"token_label"`

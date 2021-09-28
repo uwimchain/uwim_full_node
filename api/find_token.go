@@ -10,7 +10,6 @@ import (
 	"node/storage/deep_actions"
 )
 
-// FindToken method arguments
 type FindTokenArgs struct {
 	Label string `json:"label"`
 }

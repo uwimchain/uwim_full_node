@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts/delegate_con"
 	"node/blockchain/contracts/delegate_con/delegate_validation"
@@ -15,11 +16,8 @@ import (
 	"node/websocket/sender"
 	"strconv"
 	"strings"
-
-	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
-// SendTransactions method arguments
 type SendTransactionArgs struct {
 	Mnemonic   string  `json:"mnemonic"`
 	From       string  `json:"from"`
@@ -53,9 +51,8 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 
 	amount := args.Amount
 
-	//if args.Type != "undelegate_contract_transaction" && args.Type != "confirmation_transaction" {
 	if args.Type != "undelegate_contract_transaction" {
-		if args.TokenLabel != config.BaseToken {
+		if args.TokenLabel == config.BaseToken {
 			tax = apparel.CalcTax(args.Amount)
 		} else {
 			tax = 0.01
@@ -112,6 +109,9 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
 
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	check := validateTransaction(args)
 	if check != 0 {
 		return errors.New(strconv.FormatInt(check, 10))
@@ -130,17 +130,6 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 }
 
 func validateTransaction(args *SendTransactionArgs) int64 {
-	/*if args.From == "" {
-		return 1
-	}
-
-	if !strings.HasPrefix(args.From, metrics.NodePrefix) &&
-		!strings.HasPrefix(args.From, metrics.SmartContractPrefix) &&
-		!strings.HasPrefix(args.From, metrics.AddressPrefix) ||
-		len(args.From) != 61 {
-		return 2
-	}*/
-
 	if args.Mnemonic == "" {
 		return 3
 	}
@@ -197,12 +186,6 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 			}
 
 			break
-		/*case "confirmation_transaction":
-		if !crypt.IsAddressSmartContract(args.To) {
-			return 94
-		}
-		//pass
-		break*/
 		default:
 			return 95
 		}
@@ -217,27 +200,7 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 	}
 
 	if args.Type != "undelegate_contract_transaction" {
-		/*sendToken := deep_actions.Balance{}
-		taxToken := deep_actions.Balance{}
-
-		for _, token := range storage.GetBalance(args.From) {
-			if token.TokenLabel == args.TokenLabel {
-				sendToken = token
-			}
-
-			if token.TokenLabel == "uwm" {
-				taxToken = token
-			}
-		}
-
-		if sendToken.Amount < args.Amount {
-			return 12
-		}
-
-		if taxToken.Amount < apparel.CalcTax(args.Amount) {
-			return 12
-		}*/
-		validateBalance := validateBalance(args.From, args.Amount, args.TokenLabel, true)
+		validateBalance := validateBalance(args.From, args.Amount, args.TokenLabel, false)
 		if validateBalance != 0 {
 			return 12
 		}
@@ -281,16 +244,6 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 			}
 			break
 		}
-	/*case "confirmation_transaction":
-	if !crypt.IsAddressSmartContract(args.To) {
-		return 18
-	}
-
-	err := my_token_con.ValidateConfirmation(args.To, args.From)
-	if err != 0 {
-		return err
-	}
-	break*/
 	default:
 		return 22
 	}
@@ -299,44 +252,6 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 		if i.From == args.From {
 			return 23
 		}
-	}
-
-	return 0
-}
-
-func TestvalidateTransaction(mnemonic, from, to, tokenLabel string, amount float64) int64 {
-	if !crypt.IsAddressUw(from) && !crypt.IsAddressSmartContract(from) && !crypt.IsAddressSmartContract(from) {
-		return 1
-	}
-
-	if !crypt.IsAddressUw(to) && !crypt.IsAddressSmartContract(to) && !crypt.IsAddressSmartContract(to) {
-		return 5
-	}
-
-	if from == to {
-		return 7
-	}
-
-	if amount < 0 {
-		return 8
-	}
-
-	if tokenLabel == "" {
-		return 9
-	}
-
-	validateMnemonic := validateMnemonic(mnemonic, from)
-	if validateMnemonic != 0 {
-		return validateMnemonic
-	}
-
-	if !storage.CheckToken(tokenLabel) {
-		return 10
-	}
-
-	validateBalance := validateBalance(from, amount, tokenLabel, true)
-	if validateBalance != 0 {
-		return validateBalance
 	}
 
 	return 0

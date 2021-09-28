@@ -11,9 +11,9 @@ var (
 )
 
 type NftToken struct {
-	Id        int64   `json:"id"`        // уникальный id
-	Hash      []byte  `json:"hash"`      // хэш TODO: подобрать шифрование
-	Owner     string  `json:"owner"`     // адрес смарт-контракта
-	Price     float64 `json:"price"`     // округление до 12 символов после запятой
-	Timestamp string  `json:"timestamp"` // в строке timestamp unix
+	Id        int64   `json:"id"`
+	Hash      []byte  `json:"hash"`
+	Owner     string  `json:"owner"`
+	Price     float64 `json:"price"`
+	Timestamp string  `json:"timestamp"`
 }

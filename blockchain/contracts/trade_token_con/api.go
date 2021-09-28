@@ -12,8 +12,6 @@ import (
 	"strings"
 )
 
-// functions for api
-// function for get all smart-contract tokens
 func GetTokens() ([]byte, error) {
 	result := make(map[string]map[string]interface{})
 
@@ -65,7 +63,6 @@ func GetTokens() ([]byte, error) {
 	return jsonString, nil
 }
 
-// function for get pool of token
 func GetToken(scAddress string) ([]byte, error) {
 	info := make(map[string]interface{})
 
@@ -120,7 +117,6 @@ func GetToken(scAddress string) ([]byte, error) {
 	return jsonString, nil
 }
 
-// function for get trade tokens to crontab
 func GetTokensForCrontab() ([]byte, error) {
 	poolsJson := PoolDB.GetAll("")
 	if poolsJson == nil {
@@ -236,7 +232,6 @@ func getInterfaceData(typeData interface{}) (map[string]interface{}, error) {
 	return result, nil
 }
 
-// function for get pool of holder
 func GetScHolder(scAddress, uwAddress string) (interface{}, error) {
 	scAddressHoldersJson := HolderDB.Get(scAddress).Value
 	var scAddressHolders []Holder
@@ -298,7 +293,6 @@ func GetScConfig(scAddress string) (interface{}, error) {
 	return scAddressConfig, nil
 }
 
-// validate functions args
 func ValidateAdd(args *TradeArgs) int64 {
 	if !crypt.IsAddressSmartContract(args.ScAddress) {
 		return 511

@@ -10,34 +10,29 @@ import (
 	"node/storage/leveldb"
 )
 
-// Структура данных аккаунта пользователя в системе
 type Address struct {
-	Address     string    `json:"address"`     // Адрес пользователя
-	Balance     []Balance `json:"balance"`     // Массив с балансом, содержит в себе информацию о количестве разных валют пользователя
-	PublicKey   []byte    `json:"publicKey"`   // Публичный ключ пользователя
-	FirstTxTime string    `json:"firstTxTime"` // Время первой транзакции, транзакция с перечислением монет на данный аккаунт
-	LastTxTime  string    `json:"lastTxTime"`  // Время крайней транзакции вне зависимости от того, отправили монеты пользователю или он сам отправил транзакцию
-	TokenLabel  string    `json:"tokenLabel"`  // Обозначения токена пользователя, пока токен не создан остаётся пустым
-	ScKeeping   bool      `json:"sc_keeping"`  // Наличие смарт-контракта у пользователя
-	Name        string    `json:"name"`        // Ник аккаунта пользователя
+	Address     string    `json:"address"`
+	Balance     []Balance `json:"balance"`
+	PublicKey   []byte    `json:"publicKey"`
+	FirstTxTime string    `json:"firstTxTime"`
+	LastTxTime  string    `json:"lastTxTime"`
+	TokenLabel  string    `json:"tokenLabel"`
+	ScKeeping   bool      `json:"sc_keeping"`
+	Name        string    `json:"name"`
 }
 
-// Структура баланса одного токена пользователя
 type Balance struct {
-	TokenLabel string  `json:"tokenLabel"` // Обозначение токена
-	Amount     float64 `json:"amount"`     // Количество монет
-	UpdateTime string  `json:"updateTime"` // Время последнего обновления баланса этого токена
+	TokenLabel string  `json:"tokenLabel"`
+	Amount     float64 `json:"amount"`
+	UpdateTime string  `json:"updateTime"`
 }
 
-// Конструктор структуры Balance. Возвращает объект структуры Balance с задаными данными
 func NewBalance(tokenLabel string, amount float64, updateTime string) *Balance {
 	return &Balance{TokenLabel: tokenLabel, Amount: amount, UpdateTime: updateTime}
 }
 
-// Функция создания нового адреса в базе данных
 func (a *Address) NewAddress(address string, balance []Balance, publicKey []byte, firstTxTime string,
 	lastTxTime string) {
-	//jsonString, err := json.Marshal(NewAddress(address, balance, publicKey, firstTxTime, lastTxTime, ""))
 	jsonString, err := json.Marshal(Address{
 		Address:     address,
 		Balance:     balance,
@@ -55,17 +50,13 @@ func (a *Address) NewAddress(address string, balance []Balance, publicKey []byte
 	leveldb.AddressDB.Put(address, string(jsonString))
 }
 
-// Функция получения данных аккаунта по адресу из базы данных
 func (a *Address) GetAddress(address string) string {
 	return leveldb.AddressDB.Get(address).Value
 }
 
-// Функция изменения баланса пользователя
 func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
-	// Получение данных пользователя по адресу из базы данных
 	row := a.GetAddress(address)
 
-	// Если пользователя нет в системе, то создаётся аккаунт
 	if row == "" {
 		publicKey, err := crypt.PublicKeyFromAddress(address)
 		if err != nil {
@@ -75,7 +66,6 @@ func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
 		a.NewAddress(address, nil, publicKey, balance.UpdateTime, balance.UpdateTime)
 	}
 
-	// Повторное получение данных пользователя из базы данных по адресу
 	row = a.GetAddress(address)
 	Addr := Address{}
 	err := json.Unmarshal([]byte(row), &Addr)
@@ -83,10 +73,8 @@ func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
 		log.Println("Update Balance error 2:", err)
 	}
 
-	// Изменение баланса пользователя в зависимости от введённых данных
 	Addr.Balance = updateBalance(Addr.Balance, balance, side)
 
-	// Выставление даты крайнего изменения баланса выбранной монеты
 	Addr.LastTxTime = balance.UpdateTime
 
 	jsonString, err := json.Marshal(Addr)
@@ -94,11 +82,9 @@ func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
 		log.Println("Update Balance error 3:", err)
 	}
 
-	// Помещение обновлённого баланса пользователя в базу данных
 	leveldb.AddressDB.Put(address, string(jsonString))
 }
 
-// Функция проверки наличия у пользователя собственного токена по адресу
 func (a *Address) CheckAddressToken(address string) bool {
 	row := a.GetAddress(address)
 	if row != "" {
@@ -114,7 +100,6 @@ func (a *Address) CheckAddressToken(address string) bool {
 	return false
 }
 
-// Функция для отказа от смарт-контракта
 func (a *Address) ScAbandonment(address string) error {
 
 	if !crypt.IsAddressUw(address) || address == config.GenesisAddress {
@@ -146,19 +131,6 @@ func (a *Address) ScAbandonment(address string) error {
 	return errors.New("Deep actions smart contract abandonment error 5")
 }
 
-//Apparel
-// Вспомогательная функция для получения номера токена в балансе пользователя
-/*func findTokenInBalance(balance []Balance, token string) int {
-	for i := range balance {
-		if balance[i].TokenLabel == token {
-			return i
-		}
-	}
-
-	return len(balance)
-}*/
-
-// Вспомогательная функция изменения баланса в зависимости от заданых параметров
 func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 	idx := -1
 	for i := range balance {
@@ -191,22 +163,6 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 		}
 		break
 	}
-
-	/*	if idx := findTokenInBalance(balance, newBalance.TokenLabel); idx != len(balance) {
-		if side {
-			balance[idx].Amount += newBalance.Amount
-			balance[idx].UpdateTime = newBalance.UpdateTime
-		} else {
-			if balance[idx].Amount < newBalance.Amount {
-				return balance
-			} else {
-				balance[idx].Amount -= newBalance.Amount
-				balance[idx].UpdateTime = newBalance.UpdateTime
-			}
-		}
-		} else {
-			balance = append(balance, newBalance)
-		}*/
 
 	return balance
 }

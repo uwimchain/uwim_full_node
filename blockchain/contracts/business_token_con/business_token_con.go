@@ -26,7 +26,6 @@ type Partner struct {
 }
 
 func UpdatePartners(scAddress string) error {
-	// get partners list on business smart-contract
 	var partnersOnScAddress []Partner
 	partnersOnScAddressJson := ContractsDB.Get(scAddress).Value
 	if partnersOnScAddressJson != "" {
@@ -36,7 +35,6 @@ func UpdatePartners(scAddress string) error {
 		}
 	}
 
-	// get partners on token standard card data
 	token := contracts.GetTokenInfoForScAddress(scAddress)
 	if token.Id == 0 {
 		return errors.New("error 2: token does not exist")
@@ -71,7 +69,6 @@ func UpdatePartners(scAddress string) error {
 		return errors.New(fmt.Sprintf("error 6: %v", err))
 	}
 
-	// refund old partners percent
 	if partnersOnScAddress != nil {
 		type RefundPartner struct {
 			Address string              `json:"address"`

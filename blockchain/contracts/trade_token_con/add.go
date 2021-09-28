@@ -10,7 +10,6 @@ import (
 	"node/config"
 )
 
-// function for add token pair to liquidity pool
 func Add(args *TradeArgs) error {
 	log.Println("GG 1")
 	err := add(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)

@@ -18,7 +18,6 @@ import (
 )
 
 func validateTransactionType1(t deep_actions.Tx) error {
-	//if !crypt.IsAddressUw(t.From) || t.From == config.GenesisAddress {
 	if t.From == config.GenesisAddress {
 		return errors.New("this address haven`t permission for send transactions of this type")
 	}

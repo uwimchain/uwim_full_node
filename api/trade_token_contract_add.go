@@ -15,7 +15,6 @@ import (
 	"strconv"
 )
 
-// SendTransactions method arguments
 type TradeTokenContractAddArgs struct {
 	Mnemonic      string  `json:"mnemonic"`
 	Amount        float64 `json:"amount"`

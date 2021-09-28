@@ -12,12 +12,6 @@ import (
 	"strings"
 )
 
-// Функция для валидации мнемофразы и адреса пользователя
-// Возвращает:
-// 0: Данные валидны
-// 2: Неверная или некорректная мнемофраза
-// 3: Неверный или некорректный адрес
-// 4: Мнемофраза не совпадает с адресом
 func validateMnemonic(mnemonic string, address string) int64 {
 	if mnemonic == "" {
 		return 2
@@ -50,10 +44,6 @@ func validateMnemonic(mnemonic string, address string) int64 {
 	return 0
 }
 
-// Функция для валидации баланса
-// Возвращает:
-// 0: Данные валидны
-// 6: Не хвататет средств для совершения операции
 func validateBalance(address string, amount float64, tokenLabel string, taxNull bool) int64 {
 	balance := storage.GetBalance(address)
 	if balance == nil {
@@ -118,10 +108,6 @@ func validateBalanceTest(address string, amount float64, tokenLabel string, taxN
 	return nil
 }
 
-// function for validating the number of identical transactions in memory
-// return
-// 0: ok
-// 245: слишком много однотипных транзакций в памяти
 func validateTxInMemory(from, to, txType string, value int64) int64 {
 	var txValue int64 = 0
 

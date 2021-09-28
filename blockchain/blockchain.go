@@ -78,12 +78,10 @@ func Worker() {
 						log.Println("__PROPOSER__", memory.Proposer, "__PROPOSER__")
 						log.Println("Block height:", config.BlockHeight)
 
-						// Заполнение голосов блока
 						votes := addNodesForVote()
 
 						var body []deep_actions.Tx
 
-						// Наполнение блока транзакциями из TransactionsMemory
 						if int64(len(storage.TransactionsMemory)) <= config.MaxStorageMemory {
 							for _, t := range storage.TransactionsMemory {
 								body = append(body, t)
@@ -94,13 +92,11 @@ func Worker() {
 							}
 						}
 
-						// Добавление в блок транзакции с наградой
 						rewardTransaction := rewardTransaction()
 						if rewardTransaction.Amount != 0 && rewardTransaction.Amount >= 0 {
 							body = append(body, rewardTransaction)
 						}
 
-						// Добавление в блок транзакции с начислением награды за делегирование
 						if config.BlockHeight%config.DelegateBlockHeight == 0 {
 							miningTransaction := delegateTransaction()
 							if miningTransaction.Amount != 0 && miningTransaction.Amount >= 0 {
@@ -164,9 +160,6 @@ func Worker() {
 
 								vote.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-								//storage.BlockMemory.Votes[voteIdx].Vote = nodeVote
-								//storage.BlockMemory.Votes[voteIdx].Signature = sign
-								//storage.BlockMemory.Votes[voteIdx].BlockHeight = config.BlockHeight
 								storage.BlockMemory.Votes[voteIdx] = vote
 								sender.SendBlockVote(vote)
 							}
@@ -184,10 +177,8 @@ func Worker() {
 					if memory.IsValidator() {
 						if storage.BlockMemory.Votes != nil {
 							
-							// Подсчёт голосов
 							if calculateVotes() {
 
-								// Запись блока в базу данных
 								storage.AddBlock()
 
 								err := vote_con.Stop(vote_con.NewStopArgs(config.BlockHeight, apparel.ParseInt64(storage.BlockMemory.Timestamp)))
@@ -195,7 +186,6 @@ func Worker() {
 									log.Println("stop votes error: ", err)
 								}
 
-								// Выполнение смарт-контрактов
 								for _, t := range storage.BlockMemory.Body {
 									t.Amount, _ = apparel.Round(t.Amount)
 									t.Tax, _ = apparel.Round(t.Tax)
@@ -756,7 +746,6 @@ func Worker() {
 								log.Println("Block not written")
 							}
 
-							// Обновление высоты блока в базе данных
 							storage.BlockHeightUpdate()
 						}
 
@@ -771,7 +760,6 @@ func Worker() {
 					NodeOperationMemory.Status = false
 					if memory.IsValidator() {
 
-						// Отчищение TransactionsMemory
 						storage.Update()
 
 						NodeOperationMemory.Status = true
@@ -779,10 +767,8 @@ func Worker() {
 					}
 				}
 
-				// Обновление списка валидаторов
 				memory.DownloadValidators()
 
-				// Отчищение BlockMemory
 				storage.BlockMemory = storage.Block{}
 				memory.Proposer = memory.GetNextProposer()
 				break
@@ -876,13 +862,6 @@ func rewardTransaction() deep_actions.Tx {
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(config.GenesisSecretKey, jsonString)
 
-	//jsonForHash, err := json.Marshal(tx)
-	//if err != nil {
-	//	log.Println("Reward transaction error:", err)
-	//}
-	//
-	//transaction.HashTx = crypt.GetHash(jsonForHash)
-
 	return tx
 }
 
@@ -921,13 +900,6 @@ func delegateTransaction() deep_actions.Tx {
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(config.GenesisSecretKey, jsonString)
 
-	//jsonForHash, err := json.Marshal(transaction)
-	//if err != nil {
-	//	log.Println("Delegate transaction error:", err)
-	//}
-	//
-	//transaction.HashTx = crypt.GetHash(jsonForHash)
-
 	return tx
 }
 
@@ -944,18 +916,6 @@ func addNodesForVote() []deep_actions.Vote {
 }
 
 func validateBlock(block storage.Block) bool {
-	//chain := deep_actions.Chain{}
-	//chain.Header.TxCounter = int64(len(block.Body))
-	//chain.Header.ProposerSignature = block.ProposerSignature
-	//chain.Header.Proposer = block.Proposer
-	//chain.Header.PrevHash = block.PrevHash
-
-	//for i := range block.Body {
-	//	jsonString, _ := json.Marshal(block.Body[i])
-	//	block.Body[i].HashTx = crypt.GetHash(jsonString)
-	//chain.Txs = append(chain.Txs, t)
-	//}
-
 	if err := validation.ValidateBlock(block); err != nil {
 		fmt.Println(err)
 		return false

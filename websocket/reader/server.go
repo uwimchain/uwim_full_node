@@ -128,10 +128,6 @@ func newBlock(body string) error {
 		return errors.New("Websocket server reader new block error 2: blockchain operation memory error")
 	}
 
-	//if memory.IsNodeProposer() {
-	//	return errors.New("Websocket server reader new block error 3: this node is proposer")
-	//}
-
 	r := websocket2.RequestSign{}
 	b := storage.Block{}
 
@@ -185,9 +181,6 @@ func blockVote(body string) {
 	if vote.BlockHeight == config.BlockHeight && crypt.VerifySign(publicKey, jsonString, vote.Signature) {
 		for i := range storage.BlockMemory.Votes {
 			if storage.BlockMemory.Votes[i].Proposer == vote.Proposer {
-				//storage.BlockMemory.Votes[i].Vote = vote.Vote
-				//storage.BlockMemory.Votes[i].BlockHeight = vote.BlockHeight
-				//storage.BlockMemory.Votes[i].Signature = vote.Signature
 				storage.BlockMemory.Votes[i] = vote
 				break
 			}
@@ -222,7 +215,6 @@ func newTx(body string) error {
 	}
 
 	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
-	//if !memory.IsNodeValidator(r.SenderIp, r.Address) {
 	if !memory.IsNodeValidator(r.Address) {
 		sender.SendTx(tx)
 	}
@@ -270,15 +262,12 @@ func downloadBlocks(body string) {
 				log.Println("Send blocks for:", request.SenderIp)
 				var blocks []deep_actions.Chain
 
-				// Если высота ноды, желающей получить блоки меньше высоты ноды больше, чем на 500, то нодаотправит ей максимум 500 блоков
-				// иначе, отправит ей разницу между высотами нод
 				minHeight := request.SenderHeight
 				maxHeight := config.BlockHeight
 				if maxHeight-minHeight > 500 {
 					maxHeight = minHeight + 500
 				}
 
-				// Выборка нужного количества блоков из базы данных по высоте
 				for i := minHeight; i < maxHeight; i++ {
 					c := deep_actions.Chain{}
 					err := json.Unmarshal([]byte(storage.GetBLockForHeight(i)), &c)
@@ -291,13 +280,11 @@ func downloadBlocks(body string) {
 					}
 				}
 
-				// Сборка полученых из бд блоков в JSON для отправки
 				body, err := json.Marshal(blocks)
 				if err != nil {
 					log.Println("Websocket server reader download blocks error 3:", err)
 				}
 
-				// Отправка собранных в JSON блоков для ноды, которая запросила подкачку
 				if err := sender.Client(request.SenderIp, sender.Request{
 					DataType: "DownloadBlocks",
 					Body:     string(body),
@@ -316,7 +303,6 @@ func downloadBlocks(body string) {
 			if err != nil {
 				log.Println("Websocket server reader download blocks error 4:", err)
 			} else {
-				// Запись блоков в базу данных при подкачке
 				storage.NewBlocksForStart(blocks)
 
 				for _, block := range blocks {
@@ -428,7 +414,6 @@ func downloadBlocks(body string) {
 						case 2:
 							{
 								if t.Comment.Title == "delegate_reward_transaction" && t.To == config.DelegateScAddress {
-									/*timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)*/
 									timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
 									_ = delegate_con.Bonus(t.Timestamp, timestamp)
 								}
@@ -584,7 +569,6 @@ func downloadBlocks(body string) {
 								case "undelegate_contract_transaction":
 									{
 										if t.From == config.DelegateScAddress {
-											/*timestampUnix := apparel.UnixFromStringTimestamp(t.Timestamp)*/
 											timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
 											err := delegate_con.UnDelegate(t.To, t.Amount, timestamp)
 											if err != nil {

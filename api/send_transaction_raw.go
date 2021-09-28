@@ -13,7 +13,6 @@ import (
 	"strconv"
 )
 
-// SendTransactions method arguments
 type SendTransactionTestArgs struct {
 	TransactionRaw string `json:"transaction_raw"`
 }

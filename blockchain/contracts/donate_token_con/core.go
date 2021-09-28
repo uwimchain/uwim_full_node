@@ -14,9 +14,6 @@ import (
 var (
 	db = contracts.Database{}
 
-	//TxsDB = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_txs")
-	//TxDB  = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_tx")
-	//LogDB = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_log")
 	EventDB  = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_event")
 	ConfigDB = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_config")
 )

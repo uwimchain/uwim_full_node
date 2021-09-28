@@ -34,8 +34,6 @@ func GetEvents(scAddress string) (interface{}, error) {
 	return result, nil
 }
 
-// validate
-// validate buy function
 func ValidateBuy(scAddress, uwAddress, tokenLabel string, amount float64) int64 {
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return 111

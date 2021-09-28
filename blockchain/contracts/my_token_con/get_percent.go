@@ -44,10 +44,6 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int
 		return errors.New("error 2: sender address is null or not uwim address")
 	}
 
-	/*	if amount <= 0 {
-		return errors.New("error 3: null or negative amount")
-	}*/
-
 	if tokenLabel == config.BaseToken {
 		return nil
 	}

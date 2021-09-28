@@ -86,7 +86,6 @@ func SendBlockVote(vote deep_actions.Vote) {
 }
 
 func SendNewBlock() {
-	//body, err := json.Marshal(storage.BlockMemory)
 	block, err := json.Marshal(storage.BlockMemory)
 	if err != nil {
 		log.Println("Send New Block error:", err)
@@ -99,7 +98,6 @@ func SendNewBlock() {
 		Data:     block,
 	})
 
-	//requestsSender("NewBlock", body)
 	requestsSender("NewBlock", message)
 }
 

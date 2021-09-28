@@ -15,13 +15,10 @@ import (
 	"strconv"
 )
 
-// SendTransactions method arguments
 type BusinessTokenContractGetPercentArgs struct {
 	Mnemonic       string                 `json:"mnemonic"`
 	TokenLabel     string                 `json:"token_label"`
 	GetPercentData map[string]interface{} `json:"get_percent_data"`
-	//GetPercentTokenLabel string  `json:"get_percent_token_label"`
-	//GetPercentAmount     float64 `json:"get_percent_amount"`
 }
 
 func (api *Api) BusinessTokenContractGetPercent(args *BusinessTokenContractGetPercentArgs, result *string) error {

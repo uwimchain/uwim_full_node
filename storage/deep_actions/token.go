@@ -12,31 +12,21 @@ var (
 	A Address
 )
 
-// Структура токена
 type Token struct {
-	Id int64 `json:"tokenId"` // Уникальный идентификатор токена в базе данных
-	// 0 - Personal
-	// 1 - Team
-	// 2 - Nft
-	Type      int64   `json:"type"`      // Тип токена
-	Label     string  `json:"label"`     // Обозначение токена
-	Name      string  `json:"name"`      // Наименование токена
-	Proposer  string  `json:"proposer"`  // Создатель токена
-	Signature []byte  `json:"signature"` // Подпись токена создателем
-	Emission  float64 `json:"emission"`  // Эмиссия токена
-	Timestamp int64   `json:"timestamp"` // Время записи токена в базу данных
-	// 0 - My
-	// 1 - Donate
-	// 3 - StartUp
-	// 4 - Business
-	// 5 - Trade
-	// 6 - Payable
-	Standard            int64     `json:"standard"`              // Стандарт токена
-	StandardHistory     []History `json:"standard_history"`      // История изменений стандартов токена
-	StandardCard        string    `json:"standard_card"`         // Карточка стандарта
-	StandardCardHistory []History `json:"standard_card_history"` // История изменений карточки стандарта токена
-	Card                string    `json:"card"`                  // Карточка токена
-	CardHistory         []History `json:"card_history"`          // История изменений карточки токена
+	Id                  int64     `json:"tokenId"`
+	Type                int64     `json:"type"`
+	Label               string    `json:"label"`
+	Name                string    `json:"name"`
+	Proposer            string    `json:"proposer"`
+	Signature           []byte    `json:"signature"`
+	Emission            float64   `json:"emission"`
+	Timestamp           int64     `json:"timestamp"`
+	Standard            int64     `json:"standard"`
+	StandardHistory     []History `json:"standard_history"`
+	StandardCard        string    `json:"standard_card"`
+	StandardCardHistory []History `json:"standard_card_history"`
+	Card                string    `json:"card"`
+	CardHistory         []History `json:"card_history"`
 }
 
 type History struct {
@@ -46,50 +36,49 @@ type History struct {
 }
 
 type PersonalTokenCard struct {
-	FullName   string      `json:"full_name"`  // Фамилия имя Отчество
-	BirthDay   string      `json:"birth_day"`  // Дата рождения
-	Gender     string      `json:"gender"`     // Пол
-	Country    string      `json:"country"`    // Страна
-	Region     string      `json:"region"`     // Область
-	City       string      `json:"city"`       // Город
-	Social     *Social     `json:"social"`     // Социальные сети
-	Messengers *Messengers `json:"messengers"` // Месседжеры
-	Email      string      `json:"email"`      // Электронная почта
-	Site       string      `json:"site"`       // Сайт
-	Hashtags   string      `json:"hashtags"`   // Интересы (хэштэги)
-	WorkPlace  string      `json:"work_place"` // Место работы
-	School     string      `json:"school"`     // Школа
-	Education  string      `json:"education"`  // Образование
-	Comment    string      `json:"comment"`    // Комментарий
+	FullName   string      `json:"full_name"`
+	BirthDay   string      `json:"birth_day"`
+	Gender     string      `json:"gender"`
+	Country    string      `json:"country"`
+	Region     string      `json:"region"`
+	City       string      `json:"city"`
+	Social     *Social     `json:"social"`
+	Messengers *Messengers `json:"messengers"`
+	Email      string      `json:"email"`
+	Site       string      `json:"site"`
+	Hashtags   string      `json:"hashtags"`
+	WorkPlace  string      `json:"work_place"`
+	School     string      `json:"school"`
+	Education  string      `json:"education"`
+	Comment    string      `json:"comment"`
 }
 
 type Social struct {
-	Vk        string `json:"vk"`        //
-	Facebook  string `json:"facebook"`  //
-	YouTube   string `json:"you_tube"`  //
-	Instagram string `json:"instagram"` //
-	Twitter   string `json:"twitter"`   //
+	Vk        string `json:"vk"`
+	Facebook  string `json:"facebook"`
+	YouTube   string `json:"you_tube"`
+	Instagram string `json:"instagram"`
+	Twitter   string `json:"twitter"`
 }
 
 type Messengers struct {
-	WhatsUp  string `json:"whats_up"` //
-	Telegram string `json:"telegram"` //
-	Discord  string `json:"discord"`  //
-	Snapchat string `json:"snapchat"` //
-	Viber    string `json:"viber"`    //
+	WhatsUp  string `json:"whats_up"`
+	Telegram string `json:"telegram"`
+	Discord  string `json:"discord"`
+	Snapchat string `json:"snapchat"`
+	Viber    string `json:"viber"`
 }
 
 type DonateStandardCardData struct {
-	FieldOfActivity string    `json:"field_of_activity"` //
-	Achievements    []string  `json:"achievements"`      //
-	Portfolio       []string  `json:"portfolio"`         // Портфолио
-	Social          *Social   `json:"social"`            // Социальные сети
-	Site            string    `json:"site"`              // Ссылка на сайт
-	Brand           string    `json:"brand"`             // Название брэнда
-	Contacts        *Contacts `json:"contacts"`          // Контакты
-	Conversion      float64   `json:"conversion"`        // Курс покупки токена
-	MaxBuy          float64   `json:"max_buy"`           // Максимальный объём покупки донатных токенов
-	//Titles          []string  `json:"titles"`            // Список, на что собирается донат
+	FieldOfActivity string    `json:"field_of_activity"`
+	Achievements    []string  `json:"achievements"`
+	Portfolio       []string  `json:"portfolio"`
+	Social          *Social   `json:"social"`
+	Site            string    `json:"site"`
+	Brand           string    `json:"brand"`
+	Contacts        *Contacts `json:"contacts"`
+	Conversion      float64   `json:"conversion"`
+	MaxBuy          float64   `json:"max_buy"`
 }
 
 type BuyTokenSign struct {
@@ -101,59 +90,49 @@ func NewBuyTokenSign(nodeAddress string) *BuyTokenSign {
 }
 
 type StartUpStandardCardData struct {
-	SubjectMatters      []string        `json:"subject_matters"`      //
-	Team                string          `json:"team"`                 //
-	Videos              []string        `json:"videos"`               //
-	ImplementationPlan  string          `json:"implementation_plan"`  //
-	EventRibbon         string          `json:"event_ribbon"`         //
-	Social              *Social         `json:"social"`               //
-	Contacts            *Contacts       `json:"contacts"`             //
-	ProjectName         string          `json:"project_name"`         //
-	Comment             string          `json:"comment"`              //
-	InvestorsConditions []string        `json:"investors_conditions"` //
-	Conversion          float64         `json:"conversion"`           //
-	CollectionAmount    float64         `json:"collection_amount"`    //
-	ListingPromises     []string        `json:"listing_promises"`     //
-	Site                string          `json:"site"`                 //
-	AdditionalData      *AdditionalData `json:"additional_data"`      //
+	SubjectMatters      []string        `json:"subject_matters"`
+	Team                string          `json:"team"`
+	Videos              []string        `json:"videos"`
+	ImplementationPlan  string          `json:"implementation_plan"`
+	EventRibbon         string          `json:"event_ribbon"`
+	Social              *Social         `json:"social"`
+	Contacts            *Contacts       `json:"contacts"`
+	ProjectName         string          `json:"project_name"`
+	Comment             string          `json:"comment"`
+	InvestorsConditions []string        `json:"investors_conditions"`
+	Conversion          float64         `json:"conversion"`
+	CollectionAmount    float64         `json:"collection_amount"`
+	ListingPromises     []string        `json:"listing_promises"`
+	Site                string          `json:"site"`
+	AdditionalData      *AdditionalData `json:"additional_data"`
 }
 
 type BusinessStandardCardData struct {
-	Team               string    `json:"team"`                //
-	Videos             []string  `json:"videos"`              //
-	ImplementationPlan string    `json:"implementation_plan"` //
-	EventRibbon        string    `json:"event_ribbon"`        //
-	Social             *Social   `json:"social"`              //
-	Contacts           *Contacts `json:"contacts"`            //
-	ProjectName        string    `json:"project_name"`        //
-	Comment            string    `json:"comment"`             //
-	Site               string    `json:"site"`                //
-
-	// token data for sale
-	AdditionalData *AdditionalData `json:"additional_data"` //
-
-	// select lists
-	Conditions      []string `json:"conditions"`       //
-	SubjectMatters  []string `json:"subject_matters"`  //
-	ListingPromises []string `json:"listing_promises"` //
-
-	// sale
-	Conversion float64 `json:"conversion"`  // token sale course
-	SalesValue float64 `json:"sales_value"` // count tokens for sale
-
-	Changes bool `json:"changes"` // Change card data
-
-	Partners []Partner `json:"partners"` // Partners data
+	Team               string          `json:"team"`
+	Videos             []string        `json:"videos"`
+	ImplementationPlan string          `json:"implementation_plan"`
+	EventRibbon        string          `json:"event_ribbon"`
+	Social             *Social         `json:"social"`
+	Contacts           *Contacts       `json:"contacts"`
+	ProjectName        string          `json:"project_name"`
+	Comment            string          `json:"comment"`
+	Site               string          `json:"site"`
+	AdditionalData     *AdditionalData `json:"additional_data"`
+	Conditions         []string        `json:"conditions"`
+	SubjectMatters     []string        `json:"subject_matters"`
+	ListingPromises    []string        `json:"listing_promises"`
+	Conversion         float64         `json:"conversion"`
+	SalesValue         float64         `json:"sales_value"`
+	Changes            bool            `json:"changes"`
+	Partners           []Partner       `json:"partners"`
 }
 
 type Partner struct {
-	Address string  `json:"address"` // partner uwim address
-	Percent float64 `json:"percent"` // partner percent
+	Address string  `json:"address"`
+	Percent float64 `json:"percent"`
 }
 
 type AdditionalData struct {
-	// 5: trade
-	// 6: payable
 	Type int64                     `json:"type"`
 	Data *TradePayableStandardData `json:"data"`
 }
@@ -170,13 +149,11 @@ type Contacts struct {
 	Email       string `json:"email"`
 }
 
-// Конструктор структуры Token. Возвращает объект структуры Token с задаными данными
 func NewToken(id int64, tType int64, label string, name string, proposer string,
 	signature []byte, emission float64, timestamp int64) *Token {
 	return &Token{Id: id, Type: tType, Label: label, Name: name, Proposer: proposer, Signature: signature, Emission: emission, Timestamp: timestamp}
 }
 
-// Функция добавления нового токена в базу данных
 func (t *Token) NewToken(tType int64, label string, name string, proposer string,
 	signature []byte, emission float64, timestamp int64) {
 	if t.CheckToken(label) {
@@ -207,14 +184,12 @@ func (t *Token) NewToken(tType int64, label string, name string, proposer string
 
 			leveldb.ConfigDB.Put("token_id", strconv.FormatInt(id, 10))
 
-			//Пополнение баланса создателя токена после его добавления в базу данных на заданную эмиссию
 			timestampD := strconv.FormatInt(timestamp, 10)
 			A.UpdateBalance(proposer, *NewBalance(label, emission, timestampD), true)
 		}
 	}
 }
 
-// Функция переименования токена
 func (t *Token) RenameToken(label string, newName string) {
 	row := t.GetToken(label)
 	if row == "" {
@@ -235,7 +210,6 @@ func (t *Token) RenameToken(label string, newName string) {
 	}
 }
 
-// Функция для изменения стандарта токена
 func (t *Token) ChangeTokenStandard(label string, newStandard int64, timestamp string, txHash string) {
 	row := t.GetToken(label)
 	if row == "" {
@@ -270,7 +244,6 @@ func (t *Token) ChangeTokenStandard(label string, newStandard int64, timestamp s
 	}
 }
 
-// Функция для заполнения карточки токена
 func (t *Token) FillTokenCard(label string, newCardData []byte, timestamp string, txHash string) {
 	row := t.GetToken(label)
 	if row == "" {
@@ -305,7 +278,6 @@ func (t *Token) FillTokenCard(label string, newCardData []byte, timestamp string
 	}
 }
 
-// Функция для заполнения карточки стандарта токена
 func (t *Token) FillTokenStandardCard(label string, newStandardCardData []byte, timestamp string, txHash string) {
 	row := t.GetToken(label)
 	if row == "" {
@@ -340,17 +312,14 @@ func (t *Token) FillTokenStandardCard(label string, newStandardCardData []byte, 
 	}
 }
 
-// Функция получения данных токена по его обозначению
 func (t *Token) GetToken(tokenLabel string) string {
 	return leveldb.TokenDb.Get(tokenLabel).Value
 }
 
-// Функция проверки наличия токена в базе данных
 func (t *Token) CheckToken(tokenLabel string) bool {
 	return leveldb.TokenDb.Has(tokenLabel)
 }
 
-// Функция получения полного списка токенов из базы данных
 func (t *Token) GetAllTokens() []Token {
 	rows := leveldb.TokenDb.GetAll("")
 
@@ -372,7 +341,6 @@ func (t *Token) GetAllTokens() []Token {
 	return tokens
 }
 
-// Функция для получения значения id для нового токена
 func (t *Token) AutoIncrement() int64 {
 	lastId := leveldb.ConfigDB.Get("token_id").Value
 	if lastId != "" {

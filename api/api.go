@@ -10,7 +10,6 @@ import (
 	"node/config"
 )
 
-// RPC Api structure
 type Api struct{}
 
 type HttpConn struct {
@@ -20,7 +19,6 @@ type HttpConn struct {
 
 func (c *HttpConn) Close() error { return nil }
 
-// Start server with Test instance as a service
 func ServerStart() {
 	server := rpc.NewServer()
 	_ = server.Register(&Api{})

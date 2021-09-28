@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-// NodeConfig method arguments
 type NodeConfigArgs struct{}
 
 type ConfigData struct {

@@ -5,7 +5,6 @@ import (
 	"node/blockchain/contracts/delegate_con"
 )
 
-// Balance method arguments
 type DelegateBalanceArgs struct {
 	Address string `json:"address"`
 }

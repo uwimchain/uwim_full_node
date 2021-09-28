@@ -60,7 +60,6 @@ func ScAddressFromMnemonic(mnemonic string) string {
 	return AddressFromPublicKey(metrics.SmartContractPrefix, PublicKeyFromSecretKey(SecretKeyFromSeed(SeedFromMnemonic(mnemonic))))
 }
 
-//Signature
 func SignMessageWithSecretKey(secretKey []byte, message []byte) []byte {
 	return ed25519.Sign(secretKey, message)
 }
@@ -69,24 +68,20 @@ func VerifySign(publicKey []byte, data []byte, signature []byte) bool {
 	return ed25519.Verify(publicKey, data, signature)
 }
 
-//Hash
 func GetHash(jsonString []byte) string {
 	alg := sha256.New()
 	alg.Write(jsonString)
 	return hex.EncodeToString(alg.Sum(nil))
 }
 
-//Seed
 func SeedFromMnemonic(mnemonic string) []byte {
 	return pbkdf2.Key([]byte(mnemonic), nil, 2048, 32, sha512.New)
 }
 
-//SecretKey
 func SecretKeyFromSeed(seed []byte) []byte {
 	return ed25519.NewKeyFromSeed(seed)
 }
 
-//PublicKey
 func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	publicKey := make([]byte, ed25519.PublicKeySize)
 	copy(publicKey, secretKey[32:])
@@ -94,9 +89,7 @@ func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	return publicKey
 }
 
-// TransactionRaw
 func DecodeTransactionRaw(transactionRaw string) (string, string, string, float64, string, []byte) {
-	// get tx bytes (184)
 	tx, _ := base64.StdEncoding.DecodeString(transactionRaw)
 
 	commentTitleBytes := tx[:1]
@@ -107,20 +100,16 @@ func DecodeTransactionRaw(transactionRaw string) (string, string, string, float6
 		break
 	}
 
-	// get sender address
 	senderBytes := tx[1:35]
 
-	// get sender address prefix
 	senderPrefixBytes := senderBytes[:2]
 	senderPrefix := getPrefixForBytes(senderPrefixBytes)
 	senderAddressBytes := senderBytes[2:]
 
 	senderAddress, _ := bech32Encode(senderPrefix, senderAddressBytes)
 
-	// get sender address
 	recipientBytes := tx[35:69]
 
-	// get recipient address prefix
 
 	recipientPrefixBytes := recipientBytes[:2]
 	recipientPrefix := getPrefixForBytes(recipientPrefixBytes)
@@ -128,7 +117,6 @@ func DecodeTransactionRaw(transactionRaw string) (string, string, string, float6
 
 	recipientAddress, _ := bech32Encode(recipientPrefix, recipientAddressBytes)
 
-	// get amount
 	amountBytes := tx[69:86]
 	amountFirstBytes := amountBytes[:8]
 	amountSecondBytes := amountBytes[8:16]
@@ -141,16 +129,13 @@ func DecodeTransactionRaw(transactionRaw string) (string, string, string, float6
 	amountSecond /= math.Pow(10, countZerosAfterDot)
 	amount := amountFirst + amountSecond
 
-	// get tokenScAddress
 	tokenBytes := tx[86:120]
 	tokenScAddressBytes := tokenBytes[2:]
 
 	tokenScAddress, _ := bech32Encode(metrics.SmartContractPrefix, tokenScAddressBytes)
 
-	// get signature
 	signatureBytes := tx[120:]
 
-	// get comment data
 	return commentTitle, senderAddress, recipientAddress, amount, tokenScAddress, signatureBytes
 }
 

@@ -23,7 +23,6 @@ type Client struct {
 	UpdateTime int64   `json:"update_time"`
 }
 
-// Функция делигирования
 func Delegate(address string, amount float64, timestamp int64) error {
 	err := updateBalance(address, amount, true, timestamp)
 	if err != nil {
@@ -33,7 +32,6 @@ func Delegate(address string, amount float64, timestamp int64) error {
 	return nil
 }
 
-// Функция начисления бонусов за вложение на аакаунты в зависимости от их баланса
 func Bonus(timestamp string, timestampUnix int64) error {
 	rows := ClientDB.GetAll("")
 	if rows != nil {
@@ -50,8 +48,6 @@ func Bonus(timestamp string, timestampUnix int64) error {
 		}
 
 		if clients != nil {
-			//timestamp := apparel.Timestamp()
-
 			for _, client := range clients {
 				if client.Balance >= 10000 {
 					amount, _ := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
@@ -73,7 +69,6 @@ func Bonus(timestamp string, timestampUnix int64) error {
 	return nil
 }
 
-// Функция разделегирования токенов пользователя
 func SendUnDelegate(address string, amount float64) error {
 	amount, _ = apparel.Round(amount)
 	if memory.IsNodeProposer() {
@@ -137,8 +132,6 @@ func SendUnDelegate(address string, amount float64) error {
 
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 		contracts.SendTx(*tx)
-
-		// TxDB.Put(strconv.FormatInt(nonce, 10), string(jsonString))
 	}
 
 	return nil
@@ -154,7 +147,6 @@ func NewUndelegateCommentData(amount float64) *UndelegateCommentData {
 	}
 }
 
-// Функция разделегирования токенов пользователя
 func UnDelegate(address string, amount float64, timestamp int64) error {
 	amount, _ = apparel.Round(amount)
 	client := getClient(address)
@@ -170,14 +162,11 @@ func UnDelegate(address string, amount float64, timestamp int64) error {
 	return nil
 }
 
-// Функция получения баланса делегирования пользователя
 func GetBalance(address string) Client {
 	balance := getClient(address)
 	return balance
 }
 
-// вспомогательная функция обновления баланса пользователя при делегировании
-// и разделегировании
 func updateBalance(address string, amount float64, side bool, timestamp int64) error {
 	amount, _ = apparel.Round(amount)
 	client := getClient(address)
@@ -197,7 +186,6 @@ func updateBalance(address string, amount float64, side bool, timestamp int64) e
 		}
 	}
 
-	// Сохранение изменённого баланса пользователя в базу данных
 	jsonString, err := json.Marshal(Client{
 		Address:    address,
 		Balance:    client.Balance,
@@ -211,7 +199,6 @@ func updateBalance(address string, amount float64, side bool, timestamp int64) e
 	return nil
 }
 
-// вспомогательная функция для получения информациии о клиенте смарт-контракта по его адресу
 func getClient(address string) Client {
 	row := ClientDB.Get(address).Value
 	client := Client{}

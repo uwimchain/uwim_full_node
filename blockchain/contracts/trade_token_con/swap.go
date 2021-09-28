@@ -13,7 +13,6 @@ import (
 	"strconv"
 )
 
-// function for swap uwm on scToken
 func Swap(args *TradeArgs) error {
 	err := swap(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)
 	if err != nil {
