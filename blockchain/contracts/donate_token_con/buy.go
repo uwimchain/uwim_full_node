@@ -124,6 +124,9 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	err = contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash, uwAddress, nil), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 12: %v", err))

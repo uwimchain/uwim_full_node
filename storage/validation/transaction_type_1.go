@@ -6,6 +6,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts/business_token_con"
+	"node/blockchain/contracts/custom_turing_token_con"
 	"node/blockchain/contracts/delegate_con/delegate_validation"
 	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/holder_con"
@@ -195,7 +196,6 @@ func validateTransactionType1(t deep_actions.Tx) error {
 			return errors.New(fmt.Sprintf("error for validate holder contract add transaction 2: %v", err))
 		}
 
-		//amount, _ := apparel.Round(apparel.ConvertInterfaceToFloat64(commentData["amount"]))
 		amount, _ := apparel.Round(t.Amount)
 		validateAdd := holder_con.ValidateAdd(t.From,
 			apparel.ConvertInterfaceToString(commentData["recipient_address"]),
@@ -205,7 +205,6 @@ func validateTransactionType1(t deep_actions.Tx) error {
 			return errors.New(fmt.Sprintf("error for validate holder contract add transaction 3: %d", validateAdd))
 		}
 		break
-
 	case "holder_contract_get_transaction":
 		if t.Tax != config.HolderGetCost {
 			return errors.New("error for validate holder contract get transaction 1: invalid tax amount")
@@ -257,6 +256,53 @@ func validateTransactionType1(t deep_actions.Tx) error {
 			apparel.ConvertInterfaceToString(commentData["possible_answer_nonce"])); validateAnswer != 0 {
 			return errors.New(fmt.Sprintf("error for validate vote contract answer transaction 2: %v",
 				validateAnswer))
+		}
+		break
+	case "custom_turing_token_add_emission_transaction":
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if err := custom_turing_token_con.ValidateAddEmission(t.From, t.To,
+			apparel.ConvertInterfaceToFloat64(commentData["add_emission_amount"])); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate custom turing token contract add emission transaction 2: %v", err))
+		}
+		break
+	case "custom_turing_token_de_delegate_transaction":
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if err := custom_turing_token_con.ValidateDeDelegate(t.From, t.To,
+			apparel.ConvertInterfaceToFloat64(commentData["de_delegate_amount"])); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate custom turing token contract de-delegate transaction 2: %v", err))
+		}
+		break
+	case "custom_turing_token_de_delegate_another_address_transaction":
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if err := custom_turing_token_con.ValidateDeDelegateAnotherAddress(t.From, t.To,
+			apparel.ConvertInterfaceToFloat64(commentData["de_delegate_amount"])); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate custom turing token contract de-delegate another address transaction 2: %v", err))
+		}
+		break
+	case "custom_turing_token_get_reward_transaction":
+		if err := custom_turing_token_con.ValidateGetReward(t.From, t.To); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate custom turing token contract get reward transaction 2: %v", err))
+		}
+		break
+	case "custom_turing_token_re_delegate_transaction":
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if err := custom_turing_token_con.ValidateReDelegate(t.From,
+			apparel.ConvertInterfaceToString(commentData["re_delegate_recipient_address"]), t.To,
+			apparel.ConvertInterfaceToFloat64(commentData["re_delegate_amount"])); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate custom turing token contract re-delegate transaction 2: %v", err))
+		}
+		break
+	case "custom_turing_token_delegate_transaction":
+		if err := custom_turing_token_con.ValidateDelegate(t.To, t.TokenLabel); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate custom turing token contract delegate transaction 2: %v", err))
 		}
 		break
 	default:

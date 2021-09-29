@@ -14,6 +14,9 @@ import (
 var (
 	db = contracts.Database{}
 
+	//TxsDB = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_txs")
+	//TxDB  = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_tx")
+	//LogDB = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_log")
 	EventDB  = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_event")
 	ConfigDB = db.NewConnection("blockchain/contracts/donate_token_con/storage/donate_token_contract_config")
 )
@@ -80,6 +83,9 @@ func ChangeStandard(scAddress string) error {
 				Comment:    tx.Comment,
 			})
 			tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
+			jsonString, _ = json.Marshal(tx)
+			tx.HashTx = crypt.GetHash(jsonString)
 
 			contracts.SendTx(*tx)
 			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)

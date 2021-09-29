@@ -139,6 +139,9 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	if scAddressTokenStandardCard.Partners != nil {
 		scAddressPartnersJson := ContractsDB.Get(scAddress).Value
 		var scAddressPartners []Partner

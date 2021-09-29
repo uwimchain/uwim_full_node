@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// Balance method arguments
 type CreateAddressArgs struct {
 	Mnemonic string `json:"mnemonic"`
 }

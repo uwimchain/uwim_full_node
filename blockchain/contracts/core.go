@@ -24,13 +24,13 @@ var (
 	GetDelegateScBalance   = storage.GetBalance(config.DelegateScAddress)
 	NewBalance             = deep_actions.NewBalance
 	SendTx                 = sender.SendTx
-	GetAddress             = storage.GetAddress
-	CheckAddressToken      = storage.CheckAddressToken
 	GetAddressToken        = storage.GetAddressToken
 	DonateStandardCardData = deep_actions.DonateStandardCardData{}
-	NewBuyTokenSign    = deep_actions.NewBuyTokenSign
-	GetBalanceForToken = storage.GetBalanceForToken
-	GetBalance         = storage.GetBalance
+	NewBuyTokenSign        = deep_actions.NewBuyTokenSign
+	GetBalanceForToken     = storage.GetBalanceForToken
+	GetBalance             = storage.GetBalance
+	AddTokenEmission       = storage.AddTokenEmission
+	GetToken               = storage.GetToken
 )
 
 type Config struct {
@@ -41,11 +41,6 @@ type Config struct {
 type Balance deep_actions.Balance
 type BusinessStandardCardData deep_actions.BusinessStandardCardData
 type Tx deep_actions.Tx
-type Log struct {
-	Timestamp  int64  `json:"timestamp"`
-	TimestampD string `json:"timestamp_d"`
-	Record     string `json:"record"`
-}
 
 type ContractCommentData struct {
 	NodeAddress string `json:"node_address"`
@@ -60,7 +55,7 @@ func NewContractCommentData(nodeAddress string, checkSum []byte) *ContractCommen
 }
 
 func GetTokenInfoForScAddress(scAddress string) deep_actions.Token {
-	token := deep_actions.Token{}
+	var token deep_actions.Token
 
 	publicKey, _ := crypt.PublicKeyFromAddress(scAddress)
 	if publicKey != nil {
@@ -71,6 +66,7 @@ func GetTokenInfoForScAddress(scAddress string) deep_actions.Token {
 	return token
 }
 
+// function for refund user token pairs
 func RefundTransaction(scAddress string, uwAddress string, amount float64, tokenLabel string) error { // test
 	if !memory.IsNodeProposer() {
 		return nil
@@ -98,20 +94,26 @@ func RefundTransaction(scAddress string, uwAddress string, amount float64, token
 	}
 
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-	tx := NewTx(
-		5,
-		apparel.GetNonce(timestamp),
-		"",
-		config.BlockHeight,
-		scAddress,
-		uwAddress,
-		amount,
-		tokenLabel,
-		timestamp,
-		0,
-		nil,
-		*NewComment("refund_transaction", nil),
-	)
+
+	comment := deep_actions.Comment{
+		Title: "refund_transaction",
+		Data:  nil,
+	}
+
+	tx := deep_actions.Tx{
+		Type:       5,
+		Nonce:      apparel.GetNonce(timestamp),
+		HashTx:     "",
+		Height:     config.BlockHeight,
+		From:       scAddress,
+		To:         uwAddress,
+		Amount:     amount,
+		TokenLabel: tokenLabel,
+		Timestamp:  timestamp,
+		Tax:        0,
+		Signature:  nil,
+		Comment:    comment,
+	}
 
 	jsonString, _ := json.Marshal(Tx{
 		Type:       tx.Type,
@@ -124,8 +126,11 @@ func RefundTransaction(scAddress string, uwAddress string, amount float64, token
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-	SendTx(*tx)
-	*TransactionsMemory = append(*TransactionsMemory, *tx)
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
+	SendTx(tx)
+	*TransactionsMemory = append(*TransactionsMemory, tx)
 
 	return nil
 }

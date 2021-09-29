@@ -23,6 +23,7 @@ type Client struct {
 	UpdateTime int64   `json:"update_time"`
 }
 
+// Функция делигирования
 func Delegate(address string, amount float64, timestamp int64) error {
 	err := updateBalance(address, amount, true, timestamp)
 	if err != nil {
@@ -32,6 +33,7 @@ func Delegate(address string, amount float64, timestamp int64) error {
 	return nil
 }
 
+// Функция начисления бонусов за вложение на аакаунты в зависимости от их баланса
 func Bonus(timestamp string, timestampUnix int64) error {
 	rows := ClientDB.GetAll("")
 	if rows != nil {
@@ -69,6 +71,7 @@ func Bonus(timestamp string, timestampUnix int64) error {
 	return nil
 }
 
+// Функция разделегирования токенов пользователя
 func SendUnDelegate(address string, amount float64) error {
 	amount, _ = apparel.Round(amount)
 	if memory.IsNodeProposer() {
@@ -77,47 +80,30 @@ func SendUnDelegate(address string, amount float64) error {
 			return errors.New("Blockchain contracts delegate contract undelegate error 1: not coins for undelegate")
 		}
 
-		to := address
 		timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
-		nonce := apparel.GetNonce(timestampD)
-		sign := crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(address))
 
 		if amount <= 0 || amount >= client.Balance {
 			amount = client.Balance
 		}
 
-		comment := *contracts.NewComment("undelegate_contract_transaction", nil)
+		txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+			config.NodeNdAddress,
+		))
 
 		tx := contracts.NewTx(
 			5,
-			0,
+			apparel.GetNonce(timestampD),
 			"",
-			0,
+			config.BlockHeight,
 			config.DelegateScAddress,
-			to,
+			address,
 			amount,
 			config.DelegateToken,
-			"",
+			timestampD,
 			apparel.CalcTax(amount),
 			nil,
-			comment,
+			*contracts.NewComment("undelegate_contract_transaction", txCommentSign),
 		)
-
-		jsonForHash, err := json.Marshal(tx)
-		if err != nil {
-			return errors.New("Blockchain contracts delegate contract undelegate error 3")
-		}
-
-		commentData, err := json.Marshal(contracts.NewContractCommentData(config.NodeNdAddress, jsonForHash))
-		if err != nil {
-			return errors.New("Blockchain contracts delegate contract undelegate error 4")
-		}
-
-		tx.Nonce = nonce
-		tx.Height = config.BlockHeight
-		tx.Timestamp = timestampD
-		tx.Signature = sign
-		tx.Comment.Data = commentData
 
 		jsonString, _ := json.Marshal(contracts.Tx{
 			Type:       tx.Type,
@@ -130,8 +116,11 @@ func SendUnDelegate(address string, amount float64) error {
 		})
 		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+		jsonString, _ = json.Marshal(tx)
+		tx.HashTx = crypt.GetHash(jsonString)
+
 		contracts.SendTx(*tx)
+		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 	}
 
 	return nil
@@ -147,6 +136,7 @@ func NewUndelegateCommentData(amount float64) *UndelegateCommentData {
 	}
 }
 
+// Функция разделегирования токенов пользователя
 func UnDelegate(address string, amount float64, timestamp int64) error {
 	amount, _ = apparel.Round(amount)
 	client := getClient(address)
@@ -162,11 +152,14 @@ func UnDelegate(address string, amount float64, timestamp int64) error {
 	return nil
 }
 
+// Функция получения баланса делегирования пользователя
 func GetBalance(address string) Client {
 	balance := getClient(address)
 	return balance
 }
 
+// вспомогательная функция обновления баланса пользователя при делегировании
+// и разделегировании
 func updateBalance(address string, amount float64, side bool, timestamp int64) error {
 	amount, _ = apparel.Round(amount)
 	client := getClient(address)
@@ -186,6 +179,7 @@ func updateBalance(address string, amount float64, side bool, timestamp int64) e
 		}
 	}
 
+	// Сохранение изменённого баланса пользователя в базу данных
 	jsonString, err := json.Marshal(Client{
 		Address:    address,
 		Balance:    client.Balance,
@@ -199,37 +193,10 @@ func updateBalance(address string, amount float64, side bool, timestamp int64) e
 	return nil
 }
 
+// вспомогательная функция для получения информациии о клиенте смарт-контракта по его адресу
 func getClient(address string) Client {
 	row := ClientDB.Get(address).Value
 	client := Client{}
 	_ = json.Unmarshal([]byte(row), &client)
 	return client
-}
-
-func UnDelegateValidate(address string, amount float64, checkSum []byte) error {
-	amount, _ = apparel.Round(amount)
-	to := address
-	comment := *contracts.NewComment("undelegate_contract_transaction", nil)
-	t := contracts.NewTx(
-		5,
-		0,
-		"",
-		0,
-		config.DelegateScAddress,
-		to,
-		amount,
-		config.DelegateToken,
-		"",
-		apparel.CalcTax(amount),
-		nil,
-		comment,
-	)
-
-	jsonForHash, _ := json.Marshal(t)
-
-	if string(jsonForHash) != string(checkSum) {
-		return errors.New("undelegate transaction checksum error")
-	}
-
-	return nil
 }

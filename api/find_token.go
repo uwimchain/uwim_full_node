@@ -10,6 +10,7 @@ import (
 	"node/storage/deep_actions"
 )
 
+// FindToken method arguments
 type FindTokenArgs struct {
 	Label string `json:"label"`
 }
@@ -18,15 +19,6 @@ type TokenCardHistory struct {
 	TxHash        string `json:"tx_hash"`
 	Timestamp     string `json:"timestamp"`
 	TxCommentData string `json:"tx_comment_data"`
-}
-
-type FindToken struct {
-	Token               deep_actions.Token     `json:"token"`
-	TokenCardHistory    []TokenCardHistory     `json:"token_card_history"`
-	TokenScAddress      string                 `json:"token_sc_address"`
-	TokenScBalance      []deep_actions.Balance `json:"token_sc_balance"`
-	TokenScTransactions []deep_actions.Tx      `json:"token_sc_transactions"`
-	TokenScInfo         string                 `json:"token_sc_info"`
 }
 
 func (api *Api) FindToken(args *FindTokenArgs, result *string) error {

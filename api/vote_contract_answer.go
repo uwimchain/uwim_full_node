@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// VoteContractAnswer method arguments
 type VoteContractAnswerArgs struct {
 	Mnemonic            string `json:"mnemonic"`
 	PossibleAnswerNonce string `json:"possible_answer_nonce"`
@@ -87,6 +88,10 @@ func (api *Api) VoteContractAnswer(args *VoteContractAnswerArgs, result *string)
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

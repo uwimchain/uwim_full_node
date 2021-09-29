@@ -7,6 +7,10 @@ import (
 	"node/config"
 )
 
+// Функция валидации запроса на разделегирование
+// 0: Ошибок нет
+// 1: Нечего разделегировать
+// 2: На смарт-контракте недостаточно баланса для разделегирования
 func UnDelegateValidate(address string, amount float64) int64 {
 	client := delegate_con.GetBalance(address)
 	if client.Balance <= 0 {

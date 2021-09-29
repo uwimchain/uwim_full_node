@@ -16,6 +16,7 @@ import (
 	"strings"
 )
 
+// RenameToken method arguments
 type RenameTokenArgs struct {
 	Mnemonic string `json:"mnemonic"`
 	Proposer string `json:"proposer"`
@@ -31,20 +32,9 @@ func (api *Api) RenameToken(args *RenameTokenArgs, result *string) error {
 	}
 
 	token := deep_actions.Token{
-		Id:                  0,
-		Type:                1,
-		Label:               args.Label,
-		Name:                args.NewName,
-		Proposer:            "",
-		Signature:           nil,
-		Emission:            0,
-		Timestamp:           0,
-		Standard:            0,
-		StandardHistory:     nil,
-		StandardCard:        "",
-		StandardCardHistory: nil,
-		Card:                "",
-		CardHistory:         nil,
+		Type:  1,
+		Label: args.Label,
+		Name:  args.NewName,
 	}
 
 	jsonString, _ := json.Marshal(token)
@@ -82,6 +72,10 @@ func (api *Api) RenameToken(args *RenameTokenArgs, result *string) error {
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
 	*result = "Token renamed"

@@ -4,6 +4,7 @@ import (
 	"node/storage"
 )
 
+// FindBlock method arguments
 type FindBlockArgs struct {
 	Height int64 `json:"height"`
 }

@@ -144,6 +144,9 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 		})
 		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
+		jsonString, _ = json.Marshal(tx)
+		tx.HashTx = crypt.GetHash(jsonString)
+
 		if memory.IsNodeProposer() {
 			contracts.SendTx(*tx)
 		}

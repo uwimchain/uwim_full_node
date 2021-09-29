@@ -13,6 +13,7 @@ import (
 	"strconv"
 )
 
+// function for swap uwm on scToken
 func Swap(args *TradeArgs) error {
 	err := swap(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)
 	if err != nil {
@@ -213,6 +214,9 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 			Comment:    tx.Comment,
 		})
 		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
+		jsonString, _ = json.Marshal(tx)
+		tx.HashTx = crypt.GetHash(jsonString)
 
 		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)

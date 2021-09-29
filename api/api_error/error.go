@@ -6,8 +6,8 @@ import (
 )
 
 type ApiError struct {
-	Code int
-	Text string
+	Code int `json:"code"`
+	Text string `json:"text"`
 }
 
 func NewApiError(code int, text string) *ApiError {

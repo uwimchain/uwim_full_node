@@ -5,6 +5,7 @@ import (
 	"node/blockchain/contracts/trade_token_con"
 )
 
+// GetTradeTokensForCrontab method arguments
 type GetTradeTokensForCrontabArgs struct {
 	Key string `json:"key"`
 }

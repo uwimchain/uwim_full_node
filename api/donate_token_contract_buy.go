@@ -16,6 +16,7 @@ import (
 	"strconv"
 )
 
+// DonateTokenContractBuy method arguments
 type DonateTokenContractBuyArgs struct {
 	Mnemonic   string  `json:"mnemonic"`
 	Amount     float64 `json:"amount"`
@@ -80,6 +81,10 @@ func (api *Api) DonateTokenContractBuy(args *DonateTokenContractBuyArgs, result 
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

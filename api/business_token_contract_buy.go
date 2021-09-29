@@ -80,6 +80,10 @@ func (api *Api) BusinessTokenContractBuy(args *BusinessTokenContractBuyArgs, res
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {
@@ -106,7 +110,8 @@ func validateBusinessBuy(mnemonic, tokenLAbel, scAddress, uwAddress string, amou
 		return validateBalance
 	}
 
-	validateTxInMemory := validateTxInMemory(uwAddress, scAddress, "business_token_contract_buy_transaction", 1)
+	validateTxInMemory := validateTxInMemory(uwAddress, scAddress, "business_token_contract_buy_transaction",
+		1)
 	if validateTxInMemory != 0 {
 		return validateTxInMemory
 	}

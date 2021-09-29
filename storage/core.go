@@ -253,7 +253,6 @@ func NewBlocksForStart(blocks []deep_actions.Chain) {
 		} else {
 
 			for _, block := range blocks {
-
 				err := c.NewChain(block)
 				if err != nil {
 					log.Println("Core new blocks for start error: ", err)
@@ -418,17 +417,8 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 }
 
 func validateDownloadBlocks(blocks []deep_actions.Chain) error {
+
 	return nil
-}
-
-func validateDownloadBlockTxs(txs []deep_actions.Tx) bool {
-	for _, t := range txs {
-		if leveldb.TxsDB.Has(t.HashTx) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func GetBlockHash(height int64) string {
@@ -771,16 +761,27 @@ func GetTokenForId(tokenId int64) (deep_actions.Token, error) {
 }
 
 func GetTokenJson(label string) string {
-	return t.GetToken(label)
+	return t.GetTokenJson(label)
 }
 
 func GetToken(label string) deep_actions.Token {
-	jsonString := t.GetToken(label)
-
 	token := deep_actions.Token{}
+	jsonString := token.GetTokenJson(label)
 	_ = json.Unmarshal([]byte(jsonString), &token)
 
 	return token
+}
+
+func AddTokenEmission(tokenLabel string, addEmissionAmount float64) error {
+	token := GetToken(tokenLabel)
+
+	if token.Emission+addEmissionAmount > config.MaxEmission {
+		return errors.New("add emission amount tran greater than max emission config parameter")
+	}
+
+	token.AddTokenEmission(addEmissionAmount)
+
+	return nil
 }
 
 func TokenAbandonment(address string, label string) error {

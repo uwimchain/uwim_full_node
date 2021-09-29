@@ -18,6 +18,7 @@ import (
 	"strings"
 )
 
+// SendTransaction method arguments
 type SendTransactionArgs struct {
 	Mnemonic   string  `json:"mnemonic"`
 	From       string  `json:"from"`

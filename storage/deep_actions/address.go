@@ -163,6 +163,5 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 		}
 		break
 	}
-
 	return balance
 }

@@ -1,14 +1,17 @@
 package crypt
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"golang.org/x/crypto/pbkdf2"
-	"math"
 	"node/metrics"
 	"strings"
 )
@@ -60,6 +63,7 @@ func ScAddressFromMnemonic(mnemonic string) string {
 	return AddressFromPublicKey(metrics.SmartContractPrefix, PublicKeyFromSecretKey(SecretKeyFromSeed(SeedFromMnemonic(mnemonic))))
 }
 
+//Signature
 func SignMessageWithSecretKey(secretKey []byte, message []byte) []byte {
 	return ed25519.Sign(secretKey, message)
 }
@@ -68,20 +72,24 @@ func VerifySign(publicKey []byte, data []byte, signature []byte) bool {
 	return ed25519.Verify(publicKey, data, signature)
 }
 
+//Hash
 func GetHash(jsonString []byte) string {
 	alg := sha256.New()
 	alg.Write(jsonString)
 	return hex.EncodeToString(alg.Sum(nil))
 }
 
+//Seed
 func SeedFromMnemonic(mnemonic string) []byte {
 	return pbkdf2.Key([]byte(mnemonic), nil, 2048, 32, sha512.New)
 }
 
+//SecretKey
 func SecretKeyFromSeed(seed []byte) []byte {
 	return ed25519.NewKeyFromSeed(seed)
 }
 
+//PublicKey
 func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	publicKey := make([]byte, ed25519.PublicKeySize)
 	copy(publicKey, secretKey[32:])
@@ -89,67 +97,62 @@ func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	return publicKey
 }
 
-func DecodeTransactionRaw(transactionRaw string) (string, string, string, float64, string, []byte) {
-	tx, _ := base64.StdEncoding.DecodeString(transactionRaw)
+// TransactionRaw
 
-	commentTitleBytes := tx[:1]
-	commentTitle := ""
-	switch commentTitleBytes[0] {
-	case 1:
-		commentTitle = "default_transaction"
-		break
-	}
-
-	senderBytes := tx[1:35]
-
-	senderPrefixBytes := senderBytes[:2]
-	senderPrefix := getPrefixForBytes(senderPrefixBytes)
-	senderAddressBytes := senderBytes[2:]
-
-	senderAddress, _ := bech32Encode(senderPrefix, senderAddressBytes)
-
-	recipientBytes := tx[35:69]
-
-
-	recipientPrefixBytes := recipientBytes[:2]
-	recipientPrefix := getPrefixForBytes(recipientPrefixBytes)
-	recipientAddressBytes := recipientBytes[2:]
-
-	recipientAddress, _ := bech32Encode(recipientPrefix, recipientAddressBytes)
-
-	amountBytes := tx[69:86]
-	amountFirstBytes := amountBytes[:8]
-	amountSecondBytes := amountBytes[8:16]
-	countZerosAfterDotBytes := amountBytes[16:]
-
-	amountFirst := float64(binary.BigEndian.Uint64(amountFirstBytes))
-	amountSecond := float64(binary.BigEndian.Uint64(amountSecondBytes))
-	countZerosAfterDot := float64(countZerosAfterDotBytes[0]) + 1
-
-	amountSecond /= math.Pow(10, countZerosAfterDot)
-	amount := amountFirst + amountSecond
-
-	tokenBytes := tx[86:120]
-	tokenScAddressBytes := tokenBytes[2:]
-
-	tokenScAddress, _ := bech32Encode(metrics.SmartContractPrefix, tokenScAddressBytes)
-
-	signatureBytes := tx[120:]
-
-	return commentTitle, senderAddress, recipientAddress, amount, tokenScAddress, signatureBytes
+type TxRaw struct {
+	Nonce      int64        `json:"nonce"`
+	From       string       `json:"from"`
+	To         string       `json:"to"`
+	Amount     float64      `json:"amount"`
+	TokenLabel string       `json:"tokenLabel"`
+	Type       int64        `json:"type"`
+	Signature  string       `json:"signature"`
+	Comment    TxRawComment `json:"comment"`
 }
 
-func getPrefixForBytes(prefixBytes []byte) string {
-	switch string(prefixBytes) {
-	case string([]byte{86, 224}):
-		return "uw"
-	case string([]byte{76, 96}):
-		return "sc"
-	case string([]byte{56, 128}):
-		return "nd"
-	default:
-		return ""
+type TxRawComment struct {
+	Title string `json:"title"`
+	Data  string `json:"data"`
+}
+
+var TransactionRawKey = []byte{139, 111, 224, 92, 142, 122, 138, 224, 138, 118, 30, 229, 209, 155, 193, 186, 180, 234, 69, 249, 75, 71, 195, 105, 20, 61, 211, 13, 104, 253, 72, 5}
+var TransactionRawIv = []byte{22, 129, 2, 139, 42, 15, 11, 131, 158, 197, 170, 43, 114, 14, 178, 167}
+
+func DecodeTransactionRaw(transactionRaw string) (*TxRaw, error) {
+	cipherText, err := base64.StdEncoding.DecodeString(transactionRaw)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("erorr 1: %v", err))
 	}
+
+	cipherBlock, err := aes.NewCipher(TransactionRawKey)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("erorr 2: %v", err))
+	}
+
+	if len(cipherText)%aes.BlockSize != 0 {
+		return nil, errors.New(fmt.Sprintf("Cipher text (len=%d) is not a multiple of the block size (%d)", len(cipherText), aes.BlockSize))
+	}
+
+	mode := cipher.NewCBCDecrypter(cipherBlock, TransactionRawIv)
+	mode.CryptBlocks(cipherText, cipherText)
+
+	txRaw := TxRaw{}
+
+	stringCipherText := strings.TrimSpace(string(cipherText))
+
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x01", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x02", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x03", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x04", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x10", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x0f", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x0e", "")
+
+	err = json.Unmarshal([]byte(stringCipherText), &txRaw)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("erorr 3: %v", err))
+	}
+	return &txRaw, nil
 }
 
 func PublicKeyFromAddress(address string) ([]byte, error) {

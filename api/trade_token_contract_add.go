@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// TradeTokenContractAdd method arguments
 type TradeTokenContractAddArgs struct {
 	Mnemonic      string  `json:"mnemonic"`
 	Amount        float64 `json:"amount"`
@@ -83,6 +84,9 @@ func (api *Api) TradeTokenContractAdd(args *TradeTokenContractAddArgs, result *s
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
 
 	sender.SendTx(tx)
 

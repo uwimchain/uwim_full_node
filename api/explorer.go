@@ -13,12 +13,23 @@ import (
 	"strconv"
 )
 
+// Explorer method arguments
 type ExplorerArgs struct {
+	// blocks
 	BlocksStart int64 `json:"blocks_start"`
 	BlocksLimit int64 `json:"blocks_limit"`
 	BlocksLast  bool  `json:"blocks_last"`
+
+	// tokens
 	TokensStart int64 `json:"tokens_start"`
 	TokensLimit int64 `json:"tokens_limit"`
+}
+
+type Block struct {
+	Height int64               `json:"height"`
+	Hash   string              `json:"hash"`
+	Header deep_actions.Header `json:"header"`
+	Txs    []deep_actions.Tx   `json:"txs"`
 }
 
 func (api *Api) Explorer(args *ExplorerArgs, result *string) error {
@@ -36,12 +47,7 @@ func (api *Api) Explorer(args *ExplorerArgs, result *string) error {
 	return nil
 }
 
-type Block struct {
-	Height int64               `json:"height"`
-	Hash   string              `json:"hash"`
-	Header deep_actions.Header `json:"header"`
-	Txs    []deep_actions.Tx   `json:"txs"`
-}
+
 
 func explorerBlocks(start, limit int64, last bool) interface{} {
 	if last {

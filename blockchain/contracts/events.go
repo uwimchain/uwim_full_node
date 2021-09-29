@@ -22,6 +22,7 @@ func NewEvent(eventType string, timestamp int64, blockHeight int64, txHash strin
 	return &Event{Type: eventType, Timestamp: timestamp, BlockHeight: blockHeight, TxHash: txHash, UwAddress: uwAddress, TypeData: typeData}
 }
 
+// function for add new event
 func AddEvent(scAddress string, event Event, eventDb, configDb *Database) error {
 	scAddressEventsJson := eventDb.Get(scAddress).Value
 	scAddressConfigJson := configDb.Get(scAddress).Value

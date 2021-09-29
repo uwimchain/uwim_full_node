@@ -17,15 +17,6 @@ func Timestamp() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func UnixFromStringTimestamp(timestamp string) int64 {
-	timestampUnix, err := time.Parse(time.RFC3339Nano, timestamp)
-	if err != nil {
-		log.Println("Unix from string timestamp error:", err)
-	}
-
-	return timestampUnix.UnixNano()
-}
-
 func TimestampUnix() int64 {
 	timestamp, err := time.Parse(time.RFC3339Nano, time.Now().Format(time.RFC3339Nano))
 	if err != nil {
@@ -173,4 +164,17 @@ func ConvertInterfaceToString(string_ interface{}) string {
 	}
 
 	return result
+}
+
+func ContainsStringInStringArr(stringArr []string, str string) bool {
+	if stringArr == nil {
+		return false
+	}
+
+	for _, i := range stringArr {
+		if i == str {
+			return true
+		}
+	}
+	return false
 }

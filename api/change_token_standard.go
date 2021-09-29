@@ -13,8 +13,14 @@ import (
 	"strconv"
 )
 
+// ChangeTokenStandard method arguments
 type ChangeTokenStandardArgs struct {
 	Mnemonic string `json:"mnemonic"`
+	// 0 - My
+	// 1 - Donate
+	// 3 - StartUp
+	// 4 - Business
+	// 5 - Trade
 	Standard int64 `json:"standard"`
 }
 
@@ -74,6 +80,9 @@ func (api *Api) ChangeTokenStandard(args *ChangeTokenStandardArgs, result *strin
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
 
 	sender.SendTx(tx)
 	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

@@ -14,12 +14,13 @@ import (
 	"strconv"
 )
 
-type FillConfigArgs struct {
+// TradeTokenContractFillConfig method arguments
+type TradeTokenContractFillConfigArgs struct {
 	Mnemonic   string  `json:"mnemonic"`
 	Commission float64 `json:"commission"`
 }
 
-func (api *Api) TradeTokenContractFillConfig(args *FillConfigArgs, result *string) error {
+func (api *Api) TradeTokenContractFillConfig(args *TradeTokenContractFillConfigArgs, result *string) error {
 	args.Mnemonic = apparel.TrimToLower(args.Mnemonic)
 	uwAddress := crypt.AddressFromMnemonic(args.Mnemonic)
 	scAddress := crypt.ScAddressFromMnemonic(args.Mnemonic)
@@ -64,6 +65,10 @@ func (api *Api) TradeTokenContractFillConfig(args *FillConfigArgs, result *strin
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

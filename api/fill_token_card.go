@@ -14,10 +14,10 @@ import (
 	"strings"
 )
 
+// FillTokenCard method arguments
 type FillTokenCardArgs struct {
-	Mnemonic string `json:"mnemonic"`
-	Proposer string `json:"proposer"`
-
+	Mnemonic   string                   `json:"mnemonic"`
+	Proposer   string                   `json:"proposer"`
 	FullName   string                   `json:"full_name"`
 	BirthDay   string                   `json:"birthday"`
 	Gender     string                   `json:"gender"`
@@ -101,6 +101,10 @@ func (api *Api) FillTokenCard(args *FillTokenCardArgs, result *string) error {
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 	storage.TransactionsMemory = append(storage.TransactionsMemory, tx)
 	*result = "Token card filled"

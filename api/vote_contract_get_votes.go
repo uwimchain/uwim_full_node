@@ -7,8 +7,8 @@ import (
 	"node/blockchain/contracts/vote_con"
 )
 
-type VoteContractGetVotesArgs struct {
-}
+// VoteContractGetVotes method arguments
+type VoteContractGetVotesArgs struct{}
 
 func (api *Api) VoteContractGetVotes(args *VoteContractHardStopArgs, result *string) error {
 	votes := vote_con.GetVotes()

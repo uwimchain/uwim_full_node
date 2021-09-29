@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// VoteContractHardStop method arguments
 type VoteContractHardStopArgs struct {
 	Mnemonic  string `json:"mnemonic"`
 	VoteNonce string `json:"vote_nonce"`
@@ -71,6 +72,10 @@ func (api *Api) VoteContractHardStop(args *VoteContractHardStopArgs, result *str
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

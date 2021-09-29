@@ -180,6 +180,9 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	err := contracts.AddEvent(scAddress, *contracts.NewEvent("Get percent", timestamp, blockHeight, txHash, uwAddress, newEventGetPercentTypeData(amount, tokenLabel)), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 13: %v", err))

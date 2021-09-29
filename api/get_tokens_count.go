@@ -5,6 +5,7 @@ import (
 	"strconv"
 )
 
+// GetTokensCount method arguments
 type GetTokensCountArgs struct{}
 
 func (api *Api) GetTokensCount(args *GetTokensCountArgs, result *string) error {

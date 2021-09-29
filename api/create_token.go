@@ -14,6 +14,7 @@ import (
 	"strings"
 )
 
+// CreateToken method arguments
 type CreateTokenArgs struct {
 	Mnemonic string `json:"mnemonic"`
 	Label    string  `json:"label"`
@@ -85,6 +86,9 @@ func (api *Api) CreateToken(args *CreateTokenArgs, result *string) error {
 			Comment:    tx.Comment,
 		})
 		tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+		jsonString, _ = json.Marshal(tx)
+		tx.HashTx = crypt.GetHash(jsonString)
 
 		sender.SendTx(tx)
 		storage.TransactionsMemory = append(storage.TransactionsMemory, tx)

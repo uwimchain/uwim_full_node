@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// VoteContractStart method arguments
 type VoteContractStartArgs struct {
 	Title          string      `json:"title"`
 	Description    string      `json:"description"`
@@ -102,6 +103,10 @@ func (api *Api) VoteContractStart(args *VoteContractStartArgs, result *string) e
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

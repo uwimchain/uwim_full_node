@@ -12,6 +12,7 @@ import (
 	"strconv"
 )
 
+// function for get commission
 func GetCom(args *GetArgs) error {
 	err := getCom(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.BlockHeight)
 	if err != nil {
@@ -52,6 +53,7 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	}
 
 	timestamp := apparel.TimestampUnix()
+	//timestampD := strconv.FormatInt(timestamp, 10)
 
 	check := -1
 	var txAmount float64 = 0
@@ -136,6 +138,9 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 			Comment:    tx.Comment,
 		})
 		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
+		jsonString, _ = json.Marshal(tx)
+		tx.HashTx = crypt.GetHash(jsonString)
 
 		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)

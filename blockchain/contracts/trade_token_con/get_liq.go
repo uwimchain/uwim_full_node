@@ -149,6 +149,9 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 		})
 		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
 
+		jsonString, _ = json.Marshal(tx)
+		tx.HashTx = crypt.GetHash(jsonString)
+
 		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
 	}

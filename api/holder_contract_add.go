@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// HolderContractAdd method arguments
 type HolderContractAddArgs struct {
 	Mnemonic         string  `json:"mnemonic"`
 	DepositorAddress string  `json:"depositor_address"`
@@ -80,6 +81,10 @@ func (api *Api) HolderContractAdd(args *HolderContractAddArgs, result *string) e
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

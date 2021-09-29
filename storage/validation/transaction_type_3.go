@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func validateTransactionType3(t deep_actions.Tx) error  {
+func validateTransactionType3(t deep_actions.Tx) error {
 	token := deep_actions.Token{}
 
 	switch t.Comment.Title {
@@ -65,22 +65,22 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 		}
 
 		balance := storage.GetBalance(token.Proposer)
-		if balance != nil {
-			for _, coin := range balance {
-				if coin.TokenLabel == config.BaseToken {
-					if token.Emission > 10000000 {
-						if coin.Amount < config.NewTokenCost1 {
-							return errors.New("low balance for create token")
-						}
-					} else if token.Emission > 10000000 {
-						if coin.Amount < config.NewTokenCost2 {
-							return errors.New("low balance for create token")
-						}
+		if balance == nil {
+			return errors.New("low balance for create token")
+		}
+
+		for _, coin := range balance {
+			if coin.TokenLabel == config.BaseToken {
+				if token.Emission > 10000000 {
+					if coin.Amount < config.NewTokenCost1 {
+						return errors.New("low balance for create token")
+					}
+				} else if token.Emission > 10000000 {
+					if coin.Amount < config.NewTokenCost2 {
+						return errors.New("low balance for create token")
 					}
 				}
 			}
-		} else {
-			return errors.New("low balance for create token")
 		}
 		break
 	case "rename_token_transaction":
@@ -115,16 +115,14 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 		}
 
 		balance := storage.GetBalance(t.From)
-		if balance != nil {
-			for _, coin := range balance {
-				if coin.TokenLabel == config.BaseToken {
-					if coin.Amount < config.RenameTokenCost {
-						return errors.New(fmt.Sprintf("low balance %s for rename token. Balance: %g", t.From, coin.Amount))
-					}
-				}
-			}
-		} else {
+		if balance == nil {
 			return errors.New(fmt.Sprintf("low balance %s for rename token", t.From))
+		}
+
+		for _, coin := range balance {
+			if coin.TokenLabel == config.BaseToken && coin.Amount < config.RenameTokenCost {
+				return errors.New(fmt.Sprintf("low balance %s for rename token. Balance: %g", t.From, coin.Amount))
+			}
 		}
 		break
 	case "change_token_standard_transaction":
@@ -141,6 +139,7 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 		if row == "" {
 			return errors.New("invalid token standard 2")
 		}
+
 		token := deep_actions.Token{}
 		err = json.Unmarshal([]byte(row), &token)
 		if err != nil {
@@ -167,7 +166,7 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 			return errors.New("invalid token standard 8")
 		}
 
-		if token.Standard == 4 && token.Standard != 5 {
+		if token.Standard == 4 {
 			return errors.New("invalid token standard 9")
 		}
 
@@ -188,7 +187,6 @@ func validateTransactionType3(t deep_actions.Tx) error  {
 			if hashtags != nil && len(hashtags)-1 > 10 {
 				return errors.New("invalid token card data 17")
 			}
-
 		}
 
 		break

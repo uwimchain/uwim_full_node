@@ -9,6 +9,7 @@ import (
 	"node/storage"
 )
 
+// GetTradeToken method arguments
 type GetTradeTokenArgs struct {
 	TokenLabel string `json:"token_label"`
 }

@@ -2,6 +2,7 @@ package api
 
 import "node/blockchain/contracts/trade_token_con"
 
+// GetTradeTokens method arguments
 type GetTradeTokensArgs struct{}
 
 func (api *Api) GetTradeTokens(args *GetTradeTokensArgs, result *string) error {

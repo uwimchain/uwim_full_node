@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// TradeTokenContractGetCom method arguments
 type TradeTokenContractGetComArgs struct {
 	Mnemonic   string `json:"mnemonic"`
 	ScAddress  string `json:"sc_address"`
@@ -74,6 +75,10 @@ func (api *Api) TradeTokenContractGetCom(args *TradeTokenContractGetComArgs, res
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

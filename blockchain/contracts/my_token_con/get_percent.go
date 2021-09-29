@@ -44,6 +44,10 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int
 		return errors.New("error 2: sender address is null or not uwim address")
 	}
 
+	/*	if amount <= 0 {
+		return errors.New("error 3: null or negative amount")
+	}*/
+
 	if tokenLabel == config.BaseToken {
 		return nil
 	}
@@ -180,6 +184,9 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int
 					Comment:    tx.Comment,
 				})
 				tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
+
+				jsonString, _ = json.Marshal(tx)
+				tx.HashTx = crypt.GetHash(jsonString)
 
 				contracts.SendTx(*tx)
 				*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)

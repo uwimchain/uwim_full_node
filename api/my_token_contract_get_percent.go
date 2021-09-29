@@ -15,6 +15,7 @@ import (
 	"strconv"
 )
 
+// MyTokenContractGetPercent method arguments
 type MyTokenContractGetPercentArgs struct {
 	Mnemonic   string `json:"mnemonic"`
 	TokenLabel string `json:"token_label"`
@@ -70,6 +71,10 @@ func (api *Api) MyTokenContractGetPercent(args *MyTokenContractGetPercentArgs, r
 		Comment:    tx.Comment,
 	})
 	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+
+	jsonString, _ = json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+
 	sender.SendTx(tx)
 
 	if memory.IsValidator() {

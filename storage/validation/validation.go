@@ -154,21 +154,29 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 	})
 
 	if !crypt.VerifySign(publicKey, jsonString, transaction.Signature) {
-		return errors.New(fmt.Sprintf("signature verify error %s", transaction.Comment.Title))
+		return errors.New(fmt.Sprintf("signature verify error %s, %v", transaction.Comment.Title, transaction.Signature))
 	}
 
 	if transaction.Height == 0 {
 		return errors.New("transaction block height is empty")
 	}
 
-	if transaction.Comment.Title != "undelegate_contract_transaction" &&
-		transaction.Comment.Title != "my_token_contract_confirmation_transaction" &&
-		transaction.Comment.Title != "trade_token_contract_get_com_transaction" &&
-		transaction.Comment.Title != "trade_token_contract_get_liq_transaction" &&
-		transaction.Comment.Title != "holder_contract_get_transaction" &&
-		transaction.Comment.Title != "vote_contract_start_transaction" &&
-		transaction.Comment.Title != "vote_contract_hard_stop_transaction" &&
-		transaction.Amount <= 0 {
+	NotZeroCommentTitles := []string{
+		"undelegate_contract_transaction",
+		"my_token_contract_confirmation_transaction",
+		"trade_token_contract_get_com_transaction",
+		"trade_token_contract_get_liq_transaction",
+		"holder_contract_get_transaction",
+		"vote_contract_start_transaction",
+		"vote_contract_hard_stop_transaction",
+		"custom_turing_token_add_emission_transaction",
+		"custom_turing_token_de_delegate_transaction",
+		"custom_turing_token_de_delegate_another_address_transaction",
+		"custom_turing_token_get_reward_transaction",
+		"custom_turing_token_re_delegate_transaction",
+	}
+
+	if CheckInStringArray(NotZeroCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
 		return errors.New("zero or negative amount")
 	}
 
@@ -231,7 +239,6 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		}
 
 		zeroTaxCommentTitles := []string{
-			"undelegate_contract_transaction",
 			"refund_transaction",
 			"my_token_contract_confirmation_transaction",
 			"my_token_contract_get_percent_transaction",
