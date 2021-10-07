@@ -2,7 +2,6 @@ package apparel
 
 import (
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
 	"math/rand"
 	"node/config"
@@ -80,18 +79,35 @@ func SearchInArray(arr []int64, find int64) bool {
 	return false
 }
 
-func Round(number float64) (float64, error) {
-	if number < 0 {
+func DelItemFromSlice(arr interface{}, i int) {
+	if arr == nil {
+		return
+	}
 
-		return 0, errors.New("error 1: round number less than zero")
+	v := reflect.ValueOf(arr).Elem()
+
+	if v.Len() == i {
+		return
+	}
+
+	v.Set(reflect.AppendSlice(v.Slice(0, i), v.Slice(i+1, v.Len())))
+}
+
+//func Round(number float64) (float64, error) {
+func Round(number float64) float64 {
+	if number < 0 {
+		//return 0, errors.New("error 1: round number less than zero")
+		return 0
 	}
 
 	roundNumber, err := strconv.ParseFloat(fmt.Sprintf("%.12f", number), 64)
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("error 2: %v", err))
+		//return 0, errors.New(fmt.Sprintf("error 2: %v", err))
+		return 0
 	}
 
-	return roundNumber, nil
+	//return roundNumber, nil
+	return roundNumber
 }
 
 func ConvertInterfaceToFloat64(float64_ interface{}) float64 {
@@ -161,6 +177,19 @@ func ConvertInterfaceToString(string_ interface{}) string {
 	v2 = reflect.Indirect(v2)
 	if v2.Type().ConvertibleTo(stringType) {
 		result = v2.Convert(stringType).String()
+	}
+
+	return result
+}
+
+func ConvertInterfaceToMapStringInterface(arr_ interface{}) map[string]interface{} {
+	if arr_ == nil {
+		return nil
+	}
+
+	result, err := arr_.(map[string]interface{})
+	if !err {
+		return nil
 	}
 
 	return result

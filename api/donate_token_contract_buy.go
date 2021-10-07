@@ -25,9 +25,10 @@ type DonateTokenContractBuyArgs struct {
 
 func (api *Api) DonateTokenContractBuy(args *DonateTokenContractBuyArgs, result *string) error {
 	args.Mnemonic, args.TokenLabel = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.TokenLabel)
-	args.Amount, _ = apparel.Round(args.Amount)
+	//args.Amount, _ = apparel.Round(args.Amount)
+	args.Amount = apparel.Round(args.Amount)
 
-	scAddressToken := storage.GetToken(args.TokenLabel)
+	scAddressToken := deep_actions.GetToken(args.TokenLabel)
 	if scAddressToken.Id == 0 {
 		return errors.New(fmt.Sprintf("error 1: %s", args.TokenLabel))
 	}

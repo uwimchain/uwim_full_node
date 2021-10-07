@@ -31,7 +31,8 @@ func (api *Api) TradeTokenContractGetCom(args *TradeTokenContractGetComArgs, res
 		return errors.New(strconv.Itoa(11))
 	}
 	tokenProposer := crypt.AddressFromPublicKey(metrics.AddressPrefix, publicKey)
-	token := storage.GetAddressToken(tokenProposer)
+	address := deep_actions.GetAddress(tokenProposer)
+	token := deep_actions.GetToken(address.TokenLabel)
 	if token.Id == 0 {
 		return errors.New(strconv.Itoa(10))
 	}

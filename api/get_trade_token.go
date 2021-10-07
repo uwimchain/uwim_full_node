@@ -6,7 +6,7 @@ import (
 	"node/blockchain/contracts/trade_token_con"
 	"node/crypt"
 	"node/metrics"
-	"node/storage"
+	"node/storage/deep_actions"
 )
 
 // GetTradeToken method arguments
@@ -17,7 +17,7 @@ type GetTradeTokenArgs struct {
 func (api *Api) GetTradeToken(args *GetTradeTokenArgs, result *string) error {
 	args.TokenLabel = apparel.TrimToLower(args.TokenLabel)
 
-	token := storage.GetToken(args.TokenLabel)
+	token := deep_actions.GetToken(args.TokenLabel)
 	if token.Id == 0 {
 		return errors.New("this token does not exists")
 	}

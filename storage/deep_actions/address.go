@@ -2,12 +2,11 @@ package deep_actions
 
 import (
 	"encoding/json"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
 	"node/apparel"
-	"node/config"
 	"node/crypt"
 	"node/storage/leveldb"
+	"strconv"
 )
 
 type Address struct {
@@ -31,9 +30,8 @@ func NewBalance(tokenLabel string, amount float64, updateTime string) *Balance {
 	return &Balance{TokenLabel: tokenLabel, Amount: amount, UpdateTime: updateTime}
 }
 
-func (a *Address) NewAddress(address string, balance []Balance, publicKey []byte, firstTxTime string,
-	lastTxTime string) {
-	jsonString, err := json.Marshal(Address{
+func NewAddress(address string, balance []Balance, publicKey []byte, firstTxTime string, lastTxTime string) *Address {
+	/*jsonString, _ := json.Marshal(Address{
 		Address:     address,
 		Balance:     balance,
 		PublicKey:   publicKey,
@@ -42,93 +40,83 @@ func (a *Address) NewAddress(address string, balance []Balance, publicKey []byte
 		TokenLabel:  "",
 		ScKeeping:   false,
 		Name:        "",
-	})
-	if err != nil {
-		log.Println("New Address error: ", err)
+	})*/
+
+	return &Address{
+		Address:     address,
+		Balance:     balance,
+		PublicKey:   publicKey,
+		FirstTxTime: firstTxTime,
+		LastTxTime:  lastTxTime,
+		TokenLabel:  "",
+		ScKeeping:   false,
+		Name:        "",
 	}
 
-	leveldb.AddressDB.Put(address, string(jsonString))
+	//leveldb.AddressDB.Put(address, string(jsonString))
 }
 
-func (a *Address) GetAddress(address string) string {
-	return leveldb.AddressDB.Get(address).Value
+func (a *Address) Create() {
+	jsonString, _ := json.Marshal(a)
+
+	leveldb.AddressDB.Put(a.Address, string(jsonString))
+}
+
+func GetAddress(addressString string) *Address {
+	address := Address{}
+	addressJson := leveldb.AddressDB.Get(addressString).Value
+	//if addressJson == "" {
+	//	return nil
+	//}
+	_ = json.Unmarshal([]byte(addressJson), &address)
+
+	return &address
+}
+
+func (a *Address) Update() {
+	jsonString, _ := json.Marshal(a)
+
+	leveldb.AddressDB.Put(a.Address, string(jsonString))
 }
 
 func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
-	row := a.GetAddress(address)
-
-	if row == "" {
+	if a.Address == "" {
 		publicKey, err := crypt.PublicKeyFromAddress(address)
 		if err != nil {
 			log.Println("Update Balance error 1:", err)
 		}
 
-		a.NewAddress(address, nil, publicKey, balance.UpdateTime, balance.UpdateTime)
+		a.Address = address
+		a.PublicKey = publicKey
+		a.FirstTxTime = balance.UpdateTime
 	}
 
-	row = a.GetAddress(address)
-	Addr := Address{}
-	err := json.Unmarshal([]byte(row), &Addr)
-	if err != nil {
-		log.Println("Update Balance error 2:", err)
-	}
-
-	Addr.Balance = updateBalance(Addr.Balance, balance, side)
-
-	Addr.LastTxTime = balance.UpdateTime
-
-	jsonString, err := json.Marshal(Addr)
-	if err != nil {
-		log.Println("Update Balance error 3:", err)
-	}
-
-	leveldb.AddressDB.Put(address, string(jsonString))
+	a.Balance = updateBalance(a.Balance, balance, side)
+	a.LastTxTime = balance.UpdateTime
+	a.Update()
 }
 
-func (a *Address) CheckAddressToken(address string) bool {
-	row := a.GetAddress(address)
-	if row != "" {
-		Addr := Address{}
-		err := json.Unmarshal([]byte(row), &Addr)
-		if err != nil {
-			log.Println("Deep actions check address token error 1:", err)
-			return false
-		}
-		return Addr.TokenLabel != ""
-	}
-
-	return false
+func (a *Address) GetBalance() []Balance {
+	return a.Balance
 }
 
-func (a *Address) ScAbandonment(address string) error {
+func (a *Address) CheckAddressToken() bool {
+	return a.TokenLabel != ""
+}
 
-	if !crypt.IsAddressUw(address) || address == config.GenesisAddress {
-		return errors.New("Deep actions smart contract abandonment error 1")
-	}
-
-	row := a.GetAddress(address)
-	if row != "" {
-		Addr := Address{}
-		err := json.Unmarshal([]byte(row), &Addr)
-		if err != nil {
-			return errors.New("Deep actions smart contract abandonment error 2")
-		}
-
-		if Addr.ScKeeping {
-			return errors.New("Deep actions smart contract abandonment error 3")
-		}
-
-		Addr.ScKeeping = true
-		jsonString, err := json.Marshal(Addr)
-		if err != nil {
-			return errors.New("Deep actions smart contract abandonment error 4")
-		}
-
-		leveldb.AddressDB.Put(address, string(jsonString))
+func (a *Address) GetToken() *Token {
+	if a.TokenLabel == "" {
 		return nil
 	}
 
-	return errors.New("Deep actions smart contract abandonment error 5")
+	return GetToken(a.TokenLabel)
+}
+
+func (a *Address) ScAbandonment() {
+	if !a.ScKeeping {
+		a.ScKeeping = true
+		a.Update()
+	}
 }
 
 func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
@@ -139,12 +127,12 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 		}
 	}
 
-	newBalance.Amount, _ = apparel.Round(newBalance.Amount)
+	newBalance.Amount = apparel.Round(newBalance.Amount)
 
 	switch side {
 	case true:
 		if idx >= 0 {
-			balance[idx].Amount, _ = apparel.Round(balance[idx].Amount)
+			balance[idx].Amount = apparel.Round(balance[idx].Amount)
 			balance[idx].Amount += newBalance.Amount
 			balance[idx].UpdateTime = newBalance.UpdateTime
 		} else {
@@ -156,7 +144,7 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 			if balance[idx].Amount < newBalance.Amount {
 				return balance
 			} else {
-				balance[idx].Amount, _ = apparel.Round(balance[idx].Amount)
+				balance[idx].Amount = apparel.Round(balance[idx].Amount)
 				balance[idx].Amount -= newBalance.Amount
 				balance[idx].UpdateTime = newBalance.UpdateTime
 			}
@@ -164,4 +152,51 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 		break
 	}
 	return balance
+}
+
+func (a *Address) UpdateBalanceTest(amount float64, label string, side bool) {
+	if a == nil {
+		return
+	}
+
+	idx := -1
+	for i := range a.Balance {
+		if a.Balance[i].TokenLabel == label {
+			idx = i
+		}
+	}
+
+	amount = apparel.Round(amount)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+
+	switch side {
+	case true:
+		if idx >= 0 {
+			a.Balance[idx].Amount += amount
+			a.Balance[idx].UpdateTime = timestamp
+		} else {
+			a.Balance = append(a.Balance, Balance{
+				TokenLabel: label,
+				Amount:     amount,
+				UpdateTime: timestamp,
+			})
+		}
+		break
+	case false:
+		if idx >= 0 {
+			if a.Balance[idx].Amount >= amount {
+				a.Balance[idx].Amount -= amount
+				a.Balance[idx].UpdateTime = timestamp
+			}
+		}
+		break
+	}
+
+	if a.FirstTxTime == "" {
+		a.FirstTxTime = timestamp
+	}
+
+	a.LastTxTime = timestamp
+
+	a.Update()
 }

@@ -22,7 +22,8 @@ type AddArgs struct {
 }
 
 func NewAddArgs(depositorAddress string, recipientAddress string, amount float64, tokenLabel string, getBlockHeight int64, txHash string, blockHeight int64) (*AddArgs, error) {
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	return &AddArgs{DepositorAddress: depositorAddress, RecipientAddress: recipientAddress, Amount: amount, TokenLabel: tokenLabel, GetBlockHeight: getBlockHeight, TxHash: txHash, BlockHeight: blockHeight}, nil
 }
 

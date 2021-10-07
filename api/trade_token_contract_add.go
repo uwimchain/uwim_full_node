@@ -27,7 +27,7 @@ func (api *Api) TradeTokenContractAdd(args *TradeTokenContractAddArgs, result *s
 	args.Mnemonic, args.TokenLabel, args.AddTokenLabel = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.TokenLabel), apparel.TrimToLower(args.AddTokenLabel)
 
 	uwAddress := crypt.AddressFromMnemonic(args.Mnemonic)
-	token := storage.GetToken(args.TokenLabel)
+	token := deep_actions.GetToken(args.TokenLabel)
 	if token.Id == 0 {
 		return errors.New(strconv.Itoa(10))
 	}
@@ -46,7 +46,8 @@ func (api *Api) TradeTokenContractAdd(args *TradeTokenContractAddArgs, result *s
 
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
-	args.Amount, _ = apparel.Round(args.Amount)
+	//args.Amount, _ = apparel.Round(args.Amount)
+	args.Amount = apparel.Round(args.Amount)
 	var tax float64 = 0.01
 	if args.TokenLabel == config.BaseToken {
 		tax = apparel.CalcTax(args.Amount)

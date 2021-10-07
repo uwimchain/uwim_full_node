@@ -5,6 +5,7 @@ import (
 	"log"
 	"node/apparel"
 	"node/config"
+	"node/crypt"
 	"node/storage/leveldb"
 	"strconv"
 )
@@ -17,20 +18,21 @@ type Token struct {
 	Id int64 `json:"tokenId"`
 	// 0 - Personal
 	// 1 - Team
-	// 2 - Nft
+	// 2 - Contract
 	Type      int64   `json:"type"`
 	Label     string  `json:"label"`
 	Name      string  `json:"name"`
 	Proposer  string  `json:"proposer"`
 	Signature []byte  `json:"signature"`
 	Emission  float64 `json:"emission"`
-	Timestamp int64   `json:"timestamp"`
+	Timestamp string  `json:"timestamp"`
 	// 0 - My
 	// 1 - Donate
 	// 3 - StartUp
 	// 4 - Business
 	// 5 - Trade
 	// 6 - Payable
+	// 7 - Nft
 	Standard            int64     `json:"standard"`
 	StandardHistory     []History `json:"standard_history"`
 	StandardCard        string    `json:"standard_card"`
@@ -137,6 +139,22 @@ type BusinessStandardCardData struct {
 	Partners           []Partner       `json:"partners"`
 }
 
+type NftStandardCardData struct {
+	Team               string          `json:"team"`
+	Videos             []string        `json:"videos"`
+	ImplementationPlan string          `json:"implementation_plan"`
+	EventRibbon        string          `json:"event_ribbon"`
+	Social             *Social         `json:"social"`
+	Contacts           *Contacts       `json:"contacts"`
+	ProjectName        string          `json:"project_name"`
+	Comment            string          `json:"comment"`
+	Site               string          `json:"site"`
+	AdditionalData     *AdditionalData `json:"additional_data"`
+	Conditions         []string        `json:"conditions"`
+	SubjectMatters     []string        `json:"subject_matters"`
+	Commission         float64         `json:"commission"`
+}
+
 type Partner struct {
 	Address string  `json:"address"`
 	Percent float64 `json:"percent"`
@@ -159,68 +177,80 @@ type Contacts struct {
 	Email       string `json:"email"`
 }
 
-func NewToken(id int64, tType int64, label string, name string, proposer string,
-	signature []byte, emission float64, timestamp int64) *Token {
-	return &Token{Id: id, Type: tType, Label: label, Name: name, Proposer: proposer, Signature: signature, Emission: emission, Timestamp: timestamp}
-}
-
-func (t *Token) NewToken(tType int64, label string, name string, proposer string,
-	signature []byte, emission float64, timestamp int64) {
-	if t.CheckToken(label) {
-		log.Println("deep actions new token error 1: token with this label is exists in database")
-	} else {
-		if id := t.AutoIncrement(); id != 0 {
-			jsonString, err := json.Marshal(NewToken(id, tType, label, name, proposer, signature, emission, timestamp))
-			if err != nil {
-				log.Println("Deep actions new token error 2: ", err)
-			}
-
-			leveldb.TokenDb.Put(label, string(jsonString))
-			leveldb.TokenIdsDb.Put(strconv.FormatInt(id, 10), label)
-
-			Addr := Address{}
-			err = json.Unmarshal([]byte(A.GetAddress(proposer)), &Addr)
-			if err != nil {
-				log.Println("Deep actions new token error 3:", err)
-			}
-			if Addr.TokenLabel == "" {
-				Addr.TokenLabel = label
-				jsonString, err = json.Marshal(Addr)
-				if err != nil {
-					log.Println("Deep actions new token error 4:", err)
-				}
-				leveldb.AddressDB.Put(proposer, string(jsonString))
-			}
-
-			leveldb.ConfigDB.Put("token_id", strconv.FormatInt(id, 10))
-
-			timestampD := strconv.FormatInt(timestamp, 10)
-			A.UpdateBalance(proposer, *NewBalance(label, emission, timestampD), true)
-		}
+func NewToken(tType int64, label string, name string, proposer string,
+	signature []byte, emission float64, timestamp string, standard int64) *Token {
+	return &Token{
+		Type:      tType,
+		Label:     label,
+		Name:      name,
+		Proposer:  proposer,
+		Signature: signature,
+		Emission:  emission,
+		Timestamp: timestamp,
+		Standard:  standard,
 	}
 }
 
-func (t *Token) RenameToken(label string, newName string) {
-	row := t.GetTokenJson(label)
-	if row == "" {
-		log.Println("Deep actions rename token error 1: token with this label does not exists in database")
-		return
+func (t *Token) Create() {
+	t.Id = autoincrement()
+	jsonString, err := json.Marshal(t)
+	if err != nil {
+		log.Println("Deep actions new token error 2: ", err)
 	}
 
-	_ = json.Unmarshal([]byte(row), &t)
-	t.Name = newName
+	if t.Type == 2 {
+		t.Emission = 0
+	}
+
+	leveldb.TokenDb.Put(t.Label, string(jsonString))
+	leveldb.TokenIdsDb.Put(strconv.FormatInt(t.Id, 10), t.Label)
+
+	address := GetAddress(t.Proposer)
+	address.TokenLabel = t.Label
+	address.Update()
+
+	leveldb.ConfigDB.Put("token_id", strconv.FormatInt(t.Id, 10))
+
+	timestamp := apparel.TimestampUnix()
+	timestampD := strconv.FormatInt(timestamp, 10)
+	address.UpdateBalance(t.Proposer, *NewBalance(t.Label, t.Emission, timestampD), true)
+}
+
+func (t *Token) SetSignature(secretKey []byte) {
 	jsonString, _ := json.Marshal(t)
-	leveldb.TokenDb.Put(label, string(jsonString))
+
+	t.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
 }
 
-func (t *Token) ChangeTokenStandard(label string, newStandard int64, timestamp string, txHash string) {
-	row := t.GetTokenJson(label)
-	if row == "" {
-		log.Println("Deep actions change token standard error 1: token with this label does not exists in database")
-		return
-	}
+func (t *Token) Update() {
+	jsonString, _ := json.Marshal(t)
+	leveldb.TokenDb.Put(t.Label, string(jsonString))
+}
 
-	_ = json.Unmarshal([]byte(row), &t)
+//func (t *Token) RenameToken(label string, newName string) {
+func (t *Token) RenameToken(newName string) {
+	//row := t.GetTokenJson(label)
+	//if row == "" {
+	//	log.Println("Deep actions rename token error 1: token with this label does not exists in database")
+	//	return
+	//}
+
+	//_ = json.Unmarshal([]byte(row), &t)
+	t.Name = newName
+	//jsonString, _ := json.Marshal(t)
+	//leveldb.TokenDb.Put(label, string(jsonString))
+	t.Update()
+}
+
+//func (t *Token) ChangeTokenStandard(label string, newStandard int64, timestamp string, txHash string) {
+func (t *Token) ChangeTokenStandard(newStandard int64, timestamp string, txHash string) {
+	//row := t.GetTokenJson(label)
+	//if row == "" {
+	//	log.Println("Deep actions change token standard error 1: token with this label does not exists in database")
+	//	return
+	//}
+
+	//_ = json.Unmarshal([]byte(row), &t)
 	t.Standard = newStandard
 	if t.StandardHistory != nil {
 		t.StandardHistory = append(t.StandardHistory, History{
@@ -236,8 +266,9 @@ func (t *Token) ChangeTokenStandard(label string, newStandard int64, timestamp s
 		})
 	}
 
-	jsonString, _ := json.Marshal(t)
-	leveldb.TokenDb.Put(label, string(jsonString))
+	//jsonString, _ := json.Marshal(t)
+	//leveldb.TokenDb.Put(label, string(jsonString))
+	t.Update()
 }
 
 func (t *Token) AddTokenEmission(addEmissionAmount float64) {
@@ -247,19 +278,22 @@ func (t *Token) AddTokenEmission(addEmissionAmount float64) {
 
 	t.Emission += addEmissionAmount
 
-	jsonString, _ := json.Marshal(t)
+	//jsonString, _ := json.Marshal(t)
 
-	leveldb.TokenDb.Put(t.Label, string(jsonString))
+	//leveldb.TokenDb.Put(t.Label, string(jsonString))
+
+	t.Update()
 }
 
-func (t *Token) FillTokenCard(label string, newCardData []byte, timestamp string, txHash string) {
-	row := t.GetTokenJson(label)
-	if row == "" {
-		log.Println("Deep actions fill token card error 1: token with this label does not exists in database")
-		return
-	}
+//func (t *Token) FillTokenCard(label string, newCardData []byte, timestamp string, txHash string) {
+func (t *Token) FillTokenCard(newCardData []byte, timestamp string, txHash string) {
+	//row := t.GetTokenJson(label)
+	//if row == "" {
+	//	log.Println("Deep actions fill token card error 1: token with this label does not exists in database")
+	//	return
+	//}
 
-	_ = json.Unmarshal([]byte(row), &t)
+	//_ = json.Unmarshal([]byte(row), &t)
 
 	t.Card = string(newCardData)
 	if t.CardHistory != nil {
@@ -276,18 +310,21 @@ func (t *Token) FillTokenCard(label string, newCardData []byte, timestamp string
 		})
 	}
 
-	jsonString, _ := json.Marshal(t)
-	leveldb.TokenDb.Put(label, string(jsonString))
+	//jsonString, _ := json.Marshal(t)
+	//leveldb.TokenDb.Put(label, string(jsonString))
+
+	t.Update()
 }
 
-func (t *Token) FillTokenStandardCard(label string, newStandardCardData []byte, timestamp string, txHash string) {
-	row := t.GetTokenJson(label)
-	if row == "" {
-		log.Println("Deep actions fill token standard card error 1: token with this label does not exists in database")
-		return
-	}
+//func (t *Token) FillTokenStandardCard(label string, newStandardCardData []byte, timestamp string, txHash string) {
+func (t *Token) FillTokenStandardCard(newStandardCardData []byte, timestamp string, txHash string) {
+	//row := t.GetTokenJson(label)
+	//if row == "" {
+	//	log.Println("Deep actions fill token standard card error 1: token with this label does not exists in database")
+	//	return
+	//}
 
-	_ = json.Unmarshal([]byte(row), &t)
+	//_ = json.Unmarshal([]byte(row), &t)
 
 	t.StandardCard = string(newStandardCardData)
 	if t.StandardCardHistory != nil {
@@ -304,27 +341,35 @@ func (t *Token) FillTokenStandardCard(label string, newStandardCardData []byte, 
 		})
 	}
 
-	jsonString, _ := json.Marshal(t)
-	leveldb.TokenDb.Put(label, string(jsonString))
+	//jsonString, _ := json.Marshal(t)
+	//leveldb.TokenDb.Put(label, string(jsonString))
+	t.Update()
+}
+
+func (t *Token) GetStandardCard() map[string]interface{} {
+	standardCardData := make(map[string]interface{})
+	_ = json.Unmarshal([]byte(t.StandardCard), &standardCardData)
+
+	return standardCardData
 }
 
 func (t *Token) GetTokenJson(tokenLabel string) string {
 	return leveldb.TokenDb.Get(tokenLabel).Value
 }
 
-func (t *Token) getToken(tokenLabel string) *Token {
-	tokenJson := leveldb.TokenDb.Get(tokenLabel).Value
+func GetToken(label string) *Token {
+	tokenJson := leveldb.TokenDb.Get(label).Value
+	token := new(Token)
+	_ = json.Unmarshal([]byte(tokenJson), token)
 
-	_ = json.Unmarshal([]byte(tokenJson), &t)
-
-	return t
+	return token
 }
 
-func (t *Token) CheckToken(tokenLabel string) bool {
+func CheckToken(tokenLabel string) bool {
 	return leveldb.TokenDb.Has(tokenLabel)
 }
 
-func (t *Token) GetAllTokens() []Token {
+func GetAllTokens() []Token {
 	rows := leveldb.TokenDb.GetAll("")
 
 	var tokens []Token
@@ -345,7 +390,7 @@ func (t *Token) GetAllTokens() []Token {
 	return tokens
 }
 
-func (t *Token) AutoIncrement() int64 {
+func autoincrement() int64 {
 	lastId := leveldb.ConfigDB.Get("token_id").Value
 	if lastId != "" {
 		result := apparel.ParseInt64(lastId)

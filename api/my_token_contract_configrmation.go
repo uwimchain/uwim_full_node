@@ -25,7 +25,7 @@ type MyTokenContractConfirmationArgs struct {
 func (api *Api) MyTokenContractConfirmation(args *MyTokenContractConfirmationArgs, result *string) error {
 	args.Mnemonic, args.TokenLabel = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.TokenLabel)
 	uwAddress := crypt.AddressFromMnemonic(args.Mnemonic)
-	scAddressToken := storage.GetToken(args.TokenLabel)
+	scAddressToken := deep_actions.GetToken(args.TokenLabel)
 	if scAddressToken.Id == 0 {
 		return errors.New(fmt.Sprintf("error %s", args.TokenLabel))
 	}

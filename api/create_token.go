@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
+	"node/blockchain/contracts/custom_turing_token_con"
 	"node/config"
 	"node/crypt"
 	"node/memory"
 	"node/storage"
 	"node/storage/deep_actions"
+	"node/storage/validation"
 	"node/websocket/sender"
 	"strconv"
 	"strings"
@@ -16,11 +18,12 @@ import (
 
 // CreateToken method arguments
 type CreateTokenArgs struct {
-	Mnemonic string `json:"mnemonic"`
+	Mnemonic string  `json:"mnemonic"`
 	Label    string  `json:"label"`
 	Type     int64   `json:"type"`
 	Emission float64 `json:"emission"`
 	Name     string  `json:"name"`
+	Standard int64   `json:"standard"`
 }
 
 func (api *Api) CreateToken(args *CreateTokenArgs, result *string) error {
@@ -31,30 +34,23 @@ func (api *Api) CreateToken(args *CreateTokenArgs, result *string) error {
 	secretKey := crypt.SecretKeyFromSeed(crypt.SeedFromMnemonic(args.Mnemonic))
 
 	if check := validateToken(args.Mnemonic, proposer, args.Label, args.Name, args.Emission, args.Type); check == 0 {
-
-		token := deep_actions.Token{
-			Type:      args.Type,
-			Label:     args.Label,
-			Name:      args.Name,
-			Proposer:  proposer,
-			Signature: nil,
-			Emission:  args.Emission,
-			Timestamp: apparel.TimestampUnix(),
-		}
-
+		token := deep_actions.NewToken(args.Type, args.Label, args.Name, proposer, nil, args.Emission,
+			strconv.FormatInt(apparel.TimestampUnix(), 10), args.Standard)
+		token.SetSignature(secretKey)
 		jsonString, _ := json.Marshal(token)
 
-		token.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
-		jsonString, _ = json.Marshal(token)
-
 		timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-		tokenCost := config.NewTokenCost1
-		if args.Emission == 10000000 {
-			tokenCost = config.NewTokenCost1
-		} else if args.Emission > config.MinEmission && args.Emission < config.MaxEmission {
-			tokenCost = config.NewTokenCost2
-		}
 
+		tokenCost := config.NewTokenCost1
+		if token.Label != custom_turing_token_con.TokenLabel {
+			if args.Emission == 10000000 {
+				tokenCost = config.NewTokenCost1
+			} else if args.Emission > config.MinEmission && args.Emission < config.MaxEmission {
+				tokenCost = config.NewTokenCost2
+			} else {
+				tokenCost = config.NewTokenCost1
+			}
+		}
 		commentData := jsonString
 		comment := deep_actions.Comment{
 			Title: "create_token_transaction",
@@ -137,32 +133,47 @@ func validateToken(mnemonic, proposer, label, name string, emission float64, tok
 		return 11
 	}
 
-	if tokenType != 0 {
+	if !validation.CheckInInt64Array(config.TokenTypes, tokenType) {
 		return 12
 	}
 
-	if emission == 0 {
-		return 13
-	}
+	if label != custom_turing_token_con.TokenLabel {
+		if tokenType != 2 {
+			if emission == 0 {
+				return 13
+			}
 
-	if emission > config.MaxEmission {
-		return 14
-	}
-	if emission < config.MinEmission {
-		return 15
+			if emission > config.MaxEmission {
+				return 14
+			}
+			if emission < config.MinEmission {
+				return 15
+			}
+
+		}
 	}
 
 	balance := storage.GetBalance(proposer)
 	if balance != nil {
 		for _, coin := range balance {
 			if coin.TokenLabel == "uwm" {
-				if emission == 10000000 {
+				if label != custom_turing_token_con.TokenLabel {
+					if emission == 10000000 {
+						if coin.Amount < config.NewTokenCost1 {
+							return 16
+						}
+					} else if emission > 10000000 {
+						if coin.Amount < config.NewTokenCost2 {
+							return 16
+						}
+					} else {
+						if coin.Amount < config.NewTokenCost1 {
+							return 16
+						}
+					}
+				} else {
 					if coin.Amount < config.NewTokenCost1 {
 						return 16
-					}
-				} else if emission > 10000000 {
-					if coin.Amount < config.NewTokenCost2 {
-						return 17
 					}
 				}
 			}
@@ -171,7 +182,8 @@ func validateToken(mnemonic, proposer, label, name string, emission float64, tok
 		return 18
 	}
 
-	token := storage.GetAddressToken(proposer)
+	address := deep_actions.GetAddress(proposer)
+	token := deep_actions.GetToken(address.TokenLabel)
 	if token.Id != 0 {
 		return 19
 	}

@@ -27,7 +27,7 @@ func (api *Api) TradeTokenContractSwap(args *TradeTokenContractSwapArgs, result 
 	args.Mnemonic, args.TokenLabel, args.SwapTokenLabel = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.TokenLabel), apparel.TrimToLower(args.SwapTokenLabel)
 
 	uwAddress := crypt.AddressFromMnemonic(args.Mnemonic)
-	token := storage.GetToken(args.TokenLabel)
+	token := deep_actions.GetToken(args.TokenLabel)
 	if token.Id == 0 {
 		return errors.New(strconv.Itoa(10))
 	}

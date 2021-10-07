@@ -22,7 +22,7 @@ type TokenCardHistory struct {
 }
 
 func (api *Api) FindToken(args *FindTokenArgs, result *string) error {
-	token := storage.GetToken(args.Label)
+	token := deep_actions.GetToken(args.Label)
 
 	var tokenCardHistory []TokenCardHistory
 

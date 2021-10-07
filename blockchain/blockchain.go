@@ -8,6 +8,7 @@ import (
 	"node/blockchain/contracts"
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/custom_turing_token_con"
+	"node/blockchain/contracts/default_con"
 	"node/blockchain/contracts/delegate_con"
 	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/holder_con"
@@ -189,8 +190,10 @@ func Worker() {
 
 								// Execution of smart contracts
 								for _, t := range storage.BlockMemory.Body {
-									t.Amount, _ = apparel.Round(t.Amount)
-									t.Tax, _ = apparel.Round(t.Tax)
+									//t.Amount, _ = apparel.Round(t.Amount)
+									t.Amount = apparel.Round(t.Amount)
+									//t.Tax, _ = apparel.Round(t.Tax)
+									t.Tax = apparel.Round(t.Tax)
 									switch t.Type {
 									case 1:
 										ExecutionSmartContractsWithType1Transaction(t)
@@ -297,7 +300,8 @@ func calculate66(votes []deep_actions.Vote) bool {
 }
 
 func rewardTransaction() deep_actions.Tx {
-	amount, _ := apparel.Round(storage.CalculateReward(config.NodeNdAddress))
+	//amount, _ := apparel.Round(storage.CalculateReward(config.NodeNdAddress))
+	amount := apparel.Round(storage.CalculateReward(config.NodeNdAddress))
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	comment := deep_actions.Comment{
@@ -338,7 +342,8 @@ func rewardTransaction() deep_actions.Tx {
 }
 
 func delegateTransaction() deep_actions.Tx {
-	amount, _ := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
+	//amount, _ := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
+	amount := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	comment := deep_actions.Comment{
@@ -758,6 +763,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 				err)
 			break
 		}
+
 		break
 	case "custom_turing_token_de_delegate_transaction":
 		commentData := make(map[string]interface{})
@@ -778,6 +784,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 				err)
 			break
 		}
+
 		break
 	case "custom_turing_token_de_delegate_another_address_transaction":
 		commentData := make(map[string]interface{})
@@ -799,23 +806,21 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 				err)
 			break
 		}
+
 		break
 	case "custom_turing_token_get_reward_transaction":
 		if err := custom_turing_token_con.GetReward(
 			custom_turing_token_con.NewGetRewardArgs(t.Height, t.HashTx)); err != nil {
-			log.Println(
-				"Deep actions new tx custom turing token contract get reward transaction error 1:",
-				err)
+			log.Println("Deep actions new tx custom turing token contract get reward transaction error 1:", err)
 			break
 		}
+
 		break
 	case "custom_turing_token_re_delegate_transaction":
 		commentData := make(map[string]interface{})
 		err := json.Unmarshal(t.Comment.Data, &commentData)
 		if err != nil {
-			log.Println(
-				"Deep actions new tx custom turing token contract re-delegate transaction error 1:",
-				err)
+			log.Println("Deep actions new tx custom turing token contract re-delegate transaction error 1:", err)
 			break
 		}
 
@@ -824,21 +829,93 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 				apparel.ConvertInterfaceToString(commentData["re_delegate_recipient_address"]),
 				apparel.ConvertInterfaceToFloat64(commentData["re_delegate_amount"]),
 				t.Height, t.HashTx)); err != nil {
-			log.Println(
-				"Deep actions new tx custom turing token contract re-delegate transaction error 1:",
-				err)
+			log.Println("Deep actions new tx custom turing token contract re-delegate transaction error 1:", err)
 			break
 		}
+
 		break
 	case "custom_turing_token_delegate_transaction":
 		if err := custom_turing_token_con.Delegate(
 			custom_turing_token_con.NewDelegateArgs(t.From, t.Amount, t.Height, t.HashTx)); err != nil {
-			log.Println(
-				"Deep actions new tx custom turing token contract delegate transaction error 1:",
-				err)
+			log.Println("Deep actions new tx custom turing token contract delegate transaction error 1:", err)
 			break
 		}
+
 		break
+	case "default_contract_create_transaction":
+		//commentData := make(map[string]interface{})
+		var commentData []interface{}
+		err := json.Unmarshal(t.Comment.Data, &commentData)
+		if err != nil {
+			log.Println("Deep actions new tx default contract create transaction error 1:", err)
+			break
+		}
+
+		if commentData == nil {
+			log.Println("Deep actions new tx default contract create transaction error 2:", err)
+			break
+		}
+
+		for i := range commentData {
+			// convert txCommentData element to map string interface for create nft token elements
+			el := apparel.ConvertInterfaceToMapStringInterface(commentData[i])
+			/*createArgs, err := default_con.NewCreate(t.From, apparel.ConvertInterfaceToString(commentData["name"]),
+			apparel.ConvertInterfaceToFloat64(commentData["price"]),
+			apparel.ConvertInterfaceToString(commentData["data"]), t.HashTx, t.Height)*/
+			createArgs, err := default_con.NewCreate(t.From, apparel.ConvertInterfaceToString(el["name"]),
+				apparel.ConvertInterfaceToFloat64(el["price"]),
+				apparel.ConvertInterfaceToString(el["data"]), t.HashTx, t.Height)
+			if err != nil {
+				log.Println("Deep actions new tx default contract create transaction error 3:", err)
+				break
+			}
+
+			if err := createArgs.Create(); err != nil {
+				log.Println("Deep actions new tx default contract create transaction error 4:", err)
+				break
+			}
+		}
+
+		break
+	case "default_contract_buy_transaction":
+		commentData := make(map[string]interface{})
+		err := json.Unmarshal(t.Comment.Data, &commentData)
+		if err != nil {
+			log.Println("Deep actions new tx default contract buy transaction error 1:", err)
+			break
+		}
+
+		createArgs, err := default_con.NewBuy(apparel.ConvertInterfaceToInt64(commentData["id"]), t.HashTx,
+			t.From, t.Amount, t.Height)
+		if err != nil {
+			log.Println("Deep actions new tx default contract buy transaction error 2:", err)
+			break
+		}
+
+		if err := createArgs.Buy(); err != nil {
+			log.Println("Deep actions new tx default contract buy transaction error 3:", err)
+			break
+		}
+
+		break
+	case "default_contract_set_price_transaction":
+		commentData := make(map[string]interface{})
+		err := json.Unmarshal(t.Comment.Data, &commentData)
+		if err != nil {
+			log.Println("Deep actions new tx default contract set price transaction error 1:", err)
+			break
+		}
+
+		setPriceArgs, err := default_con.NewSetPrice(apparel.ConvertInterfaceToInt64(commentData["id"]), apparel.ConvertInterfaceToFloat64(commentData["new_price"]), t.HashTx, t.Height)
+		if err != nil {
+			log.Println("Deep actions new tx default contract set price transaction error 2:", err)
+			break
+		}
+
+		if err := setPriceArgs.SetPrice(); err != nil {
+			log.Println("Deep actions new tx default contract set price transaction error 3:", err)
+			break
+		}
 	}
 }
 
@@ -850,9 +927,12 @@ func ExecutionSmartContractsWithType2Transaction(t deep_actions.Tx) {
 }
 
 func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
+	address := deep_actions.GetAddress(t.From)
+	token := address.GetToken()
 	switch t.Comment.Title {
 	case "change_token_standard_transaction":
-		token := storage.GetAddressToken(t.From)
+		//address := deep_actions.GetAddress(t.From)
+		//token := address.GetToken()
 		if token.Id == 0 {
 			break
 		}
@@ -992,7 +1072,7 @@ func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
 		break
 
 	case "fill_token_standard_card_transaction":
-		token := storage.GetAddressToken(t.From)
+		//token := storage.GetAddressToken(t.From)
 		if token.Label == "" {
 			break
 		}

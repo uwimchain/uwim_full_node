@@ -47,8 +47,8 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 		return errors.New(strconv.Itoa(1))
 	}
 
-	address := storage.GetAddress(args.Address)
-	token := storage.GetToken(address.TokenLabel)
+	address := deep_actions.GetAddress(args.Address)
+	token := deep_actions.GetToken(address.TokenLabel)
 	scBalance := storage.GetScBalance(args.Address)
 	delegateBalance := delegate_con.GetBalance(address.Address)
 	tokenContractData := make(map[string]interface{})
@@ -141,7 +141,7 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 	if address.Balance != nil {
 		for _, i := range address.Balance {
 			if i.TokenLabel != config.BaseToken {
-				t := storage.GetToken(i.TokenLabel)
+				t := deep_actions.GetToken(i.TokenLabel)
 				publicKey, _ := crypt.PublicKeyFromAddress(t.Proposer)
 				tokenScAddress := crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
 				switch t.Standard {
@@ -231,7 +231,7 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 		Address:      args.Address,
 		Balance:      address.Balance,
 		Transactions: storage.GetTransactions(args.Address),
-		Token:        token,
+		Token:        *token,
 		ScKeeping:    address.ScKeeping,
 		Name:         address.Name,
 		ScBalance:    scBalance,

@@ -51,18 +51,22 @@ func Bonus(timestamp string, timestampUnix int64) error {
 
 		if clients != nil {
 			for _, client := range clients {
+				address := contracts.GetAddress(config.DelegateScAddress)
 				if client.Balance >= 10000 {
-					amount, _ := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
+					//amount, _ := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
+					amount := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
 					_ = updateBalance(client.Address, amount, true, timestampUnix)
-					contracts.StorageUpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+					address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
 				} else if client.Balance >= 1000 {
-					amount, _ := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
+					//amount, _ := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
+					amount := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
 					_ = updateBalance(client.Address, amount, true, timestampUnix)
-					contracts.StorageUpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+					address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
 				} else if client.Balance >= 100 {
-					amount, _ := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
+					//amount, _ := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
+					amount := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
 					_ = updateBalance(client.Address, amount, true, timestampUnix)
-					contracts.StorageUpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+					address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
 				}
 			}
 		}
@@ -73,7 +77,8 @@ func Bonus(timestamp string, timestampUnix int64) error {
 
 // Функция разделегирования токенов пользователя
 func SendUnDelegate(address string, amount float64) error {
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	if memory.IsNodeProposer() {
 		client := getClient(address)
 		if client.Balance <= 0 {
@@ -138,7 +143,8 @@ func NewUndelegateCommentData(amount float64) *UndelegateCommentData {
 
 // Функция разделегирования токенов пользователя
 func UnDelegate(address string, amount float64, timestamp int64) error {
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	client := getClient(address)
 	if client.Balance <= 0 {
 		return errors.New("Blockchain contracts delegate contract undelegate error 1: not coins for undelegate")
@@ -161,11 +167,14 @@ func GetBalance(address string) Client {
 // вспомогательная функция обновления баланса пользователя при делегировании
 // и разделегировании
 func updateBalance(address string, amount float64, side bool, timestamp int64) error {
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	client := getClient(address)
 
-	amount, _ = apparel.Round(amount)
-	client.Balance, _ = apparel.Round(client.Balance)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
+	//client.Balance, _ = apparel.Round(client.Balance)
+	client.Balance = apparel.Round(client.Balance)
 
 	switch side {
 	case true:

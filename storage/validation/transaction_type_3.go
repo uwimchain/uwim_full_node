@@ -2,9 +2,9 @@ package validation
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
+	"node/blockchain/contracts/custom_turing_token_con"
 	"node/config"
 	"node/storage"
 	"node/storage/deep_actions"
@@ -12,10 +12,10 @@ import (
 )
 
 func validateTransactionType3(t deep_actions.Tx) error {
-	token := deep_actions.Token{}
 
 	switch t.Comment.Title {
 	case "create_token_transaction":
+		token := deep_actions.Token{}
 		err := json.Unmarshal(t.Comment.Data, &token)
 		if err != nil {
 			return errors.New("create token data error")
@@ -41,46 +41,44 @@ func validateTransactionType3(t deep_actions.Tx) error {
 			return errors.New("token name is greater than maximum")
 		}
 
-		if token.Type != 0 {
+		if !CheckInInt64Array(config.TokenTypes, token.Type) {
 			return errors.New("this type of token does not exist")
 		}
 
-		if token.Emission == 0 {
-			return errors.New("token emission is empty")
+		if token.Label != custom_turing_token_con.TokenLabel {
+			if token.Type == 2 {
+				if token.Standard != 7 {
+					return errors.New("invalid token standard")
+				}
+
+				if token.Emission != 0 {
+					return errors.New("incorrect emission amount")
+				}
+			} else {
+				if token.Standard == 7 {
+					return errors.New("invalid token standard")
+				}
+				if token.Emission == 0 {
+					return errors.New("token emission is empty")
+				}
+
+				if token.Emission > config.MaxEmission {
+					return errors.New("token emission is greater than maximum")
+				}
+				if token.Emission < config.MinEmission {
+					return errors.New("token emission is less than the minimum")
+				}
+			}
 		}
 
-		if token.Emission > config.MaxEmission {
-			return errors.New("token emission is greater than maximum")
-		}
-		if token.Emission < config.MinEmission {
-			return errors.New("token emission is less than the minimum")
-		}
-
-		if token.CheckToken(token.Label) {
+		if deep_actions.CheckToken(token.Label) {
 			return errors.New("token already exists")
 		}
 
-		if a.CheckAddressToken(token.Proposer) {
+		address := deep_actions.GetAddress(t.From)
+
+		if address.CheckAddressToken() {
 			return errors.New("this user have token")
-		}
-
-		balance := storage.GetBalance(token.Proposer)
-		if balance == nil {
-			return errors.New("low balance for create token")
-		}
-
-		for _, coin := range balance {
-			if coin.TokenLabel == config.BaseToken {
-				if token.Emission > 10000000 {
-					if coin.Amount < config.NewTokenCost1 {
-						return errors.New("low balance for create token")
-					}
-				} else if token.Emission > 10000000 {
-					if coin.Amount < config.NewTokenCost2 {
-						return errors.New("low balance for create token")
-					}
-				}
-			}
 		}
 		break
 	case "rename_token_transaction":
@@ -106,26 +104,19 @@ func validateTransactionType3(t deep_actions.Tx) error {
 			return errors.New("token name is greater than maximum")
 		}
 
-		if !token.CheckToken(token.Label) {
+		if !deep_actions.CheckToken(token.Label) {
 			return errors.New("this token does not exist`s")
 		}
 
-		if !a.CheckAddressToken(t.From) {
+		address := deep_actions.GetAddress(t.From)
+
+		if !address.CheckAddressToken() {
 			return errors.New("this user haven`t token")
 		}
 
-		balance := storage.GetBalance(t.From)
-		if balance == nil {
-			return errors.New(fmt.Sprintf("low balance %s for rename token", t.From))
-		}
-
-		for _, coin := range balance {
-			if coin.TokenLabel == config.BaseToken && coin.Amount < config.RenameTokenCost {
-				return errors.New(fmt.Sprintf("low balance %s for rename token. Balance: %g", t.From, coin.Amount))
-			}
-		}
 		break
 	case "change_token_standard_transaction":
+		token := deep_actions.Token{}
 		err := json.Unmarshal(t.Comment.Data, &token)
 		if err != nil {
 			return errors.New("change token standard data error")
@@ -140,7 +131,6 @@ func validateTransactionType3(t deep_actions.Tx) error {
 			return errors.New("invalid token standard 2")
 		}
 
-		token := deep_actions.Token{}
 		err = json.Unmarshal([]byte(row), &token)
 		if err != nil {
 			return errors.New("invalid token standard 3")
@@ -191,7 +181,8 @@ func validateTransactionType3(t deep_actions.Tx) error {
 
 		break
 	case "fill_token_standard_card_transaction":
-		token := storage.GetAddressToken(t.From)
+		address := deep_actions.GetAddress(t.From)
+		token := deep_actions.GetToken(address.TokenLabel)
 		switch token.Standard {
 		case 2:
 			if check := validate2standard(string(t.Comment.Data)); check != nil {
@@ -205,6 +196,11 @@ func validateTransactionType3(t deep_actions.Tx) error {
 			break
 		case 4:
 			if check := validate4standard(string(t.Comment.Data)); check != nil {
+				return check
+			}
+			break
+		case 7:
+			if check := validate7standard(string(t.Comment.Data)); check != nil {
 				return check
 			}
 			break
@@ -242,6 +238,16 @@ func validate4standard(data string) error {
 	err := json.Unmarshal([]byte(data), &tokenStandardCard)
 	if err != nil {
 		return errors.New("invalid token standard card data 141")
+	}
+
+	return nil
+}
+
+func validate7standard(data string) error {
+	tokenStandardCard := deep_actions.NftStandardCardData{}
+	err := json.Unmarshal([]byte(data), &tokenStandardCard)
+	if err != nil {
+		return errors.New("invalid token standard card data 171")
 	}
 
 	return nil

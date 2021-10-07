@@ -51,7 +51,8 @@ func NewGetPercentArgs(scAddress string, uwAddress, txHash string, data interfac
 		return nil, errors.New(fmt.Sprintf("error 6: %v", err))
 	}
 
-	amount, _ := apparel.Round(apparel.ConvertInterfaceToFloat64(dataArr["amount"]))
+	//amount, _ := apparel.Round(apparel.ConvertInterfaceToFloat64(dataArr["amount"]))
+	amount := apparel.Round(apparel.ConvertInterfaceToFloat64(dataArr["amount"]))
 	if amount <= 0 {
 		return nil, errors.New("error 7: zero or negative amount")
 	}

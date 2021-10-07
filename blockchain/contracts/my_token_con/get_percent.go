@@ -93,8 +93,10 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int
 		var transactions []contracts.Tx
 		for _, i := range scAddressBalance {
 			if i.TokenLabel != scAddressToken.Label {
-				amount, _ := apparel.Round(i.Amount * (uwAddressPercent / 100))
-				tax, _ := apparel.Round(apparel.CalcTax(amount))
+				//amount, _ := apparel.Round(i.Amount * (uwAddressPercent / 100))
+				amount := apparel.Round(i.Amount * (uwAddressPercent / 100))
+				//tax, _ := apparel.Round(apparel.CalcTax(amount))
+				tax := apparel.Round(apparel.CalcTax(amount))
 				nonce := apparel.GetNonce(strconv.FormatInt(timestamp, 10))
 				txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
 					config.NodeNdAddress,
@@ -159,7 +161,7 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int
 
 		if memory.IsNodeProposer() {
 			for _, i := range transactions {
-				tx:= contracts.NewTx(
+				tx := contracts.NewTx(
 					i.Type,
 					i.Nonce,
 					i.HashTx,

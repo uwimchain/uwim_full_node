@@ -38,7 +38,8 @@ func NewBuyArgs(scAddress string, uwAddress, tokenLabel string, amount float64, 
 		return nil, errors.New(fmt.Sprintf("error 3: transaction with this hash \"%s\" does not exist", txHash))
 	}
 
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	if amount <= 0 {
 		return nil, errors.New("error 4: zero or negative amount")
 	}
@@ -94,9 +95,11 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 7: %v", err))
 	}
 
-	txAmount, _ := apparel.Round(amount * scAddressTokenStandardCard.Conversion)
+	//txAmount, _ := apparel.Round(amount * scAddressTokenStandardCard.Conversion)
+	txAmount := apparel.Round(amount * scAddressTokenStandardCard.Conversion)
 
-	txTax, _ := apparel.Round(apparel.CalcTax(txAmount))
+	//txTax, _ := apparel.Round(apparel.CalcTax(txAmount))
+	txTax := apparel.Round(apparel.CalcTax(txAmount))
 	if scAddressBalanceForTokenUwm.Amount < amount || scAddressBalanceForTokenUwm.Amount-amount < 1 {
 		return errors.New(fmt.Sprintf("error 8: smart-contract low balance for token \"%s\"", scAddressToken.Label))
 	}
@@ -154,7 +157,8 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 
 		if scAddressPartners != nil {
 			for _, i := range scAddressTokenStandardCard.Partners {
-				partnerReward, _ := apparel.Round(amount * (i.Percent / 100))
+				//partnerReward, _ := apparel.Round(amount * (i.Percent / 100))
+				partnerReward := apparel.Round(amount * (i.Percent / 100))
 				if partnerReward <= 0 {
 					continue
 				}

@@ -74,7 +74,8 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 		if crypt.IsAddressSmartContract(args.To) && args.To != config.DelegateScAddress {
 			pubKey, _ := crypt.PublicKeyFromAddress(args.To)
 			uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, pubKey)
-			token := storage.GetAddressToken(uwAddress)
+			address := deep_actions.GetAddress(uwAddress)
+			token := deep_actions.GetToken(address.TokenLabel)
 
 			if token.Standard != 0 {
 				commentJson, _ := json.Marshal(args.Comment)
@@ -181,7 +182,8 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 			}
 
 			uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, publicKey)
-			token := storage.GetAddressToken(uwAddress)
+			address := deep_actions.GetAddress(uwAddress)
+			token := deep_actions.GetToken(address.TokenLabel)
 			if token.Standard != 4 {
 				return 93
 			}

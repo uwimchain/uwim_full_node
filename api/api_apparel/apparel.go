@@ -1,12 +1,6 @@
 package api_apparel
 
-import (
-	"encoding/json"
-	"node/crypt"
-	"node/storage/deep_actions"
-)
-
-func SignTransaction(secretKey []byte, from, to, tokenLabel string, amount, tax float64, comment deep_actions.Comment) []byte {
+/*func SignTransaction(secretKey []byte, from, to, tokenLabel string, amount, tax float64, comment deep_actions.Comment) []byte {
 	tx := deep_actions.Tx{
 		From:       from,
 		To:         to,
@@ -20,3 +14,4 @@ func SignTransaction(secretKey []byte, from, to, tokenLabel string, amount, tax 
 
 	return crypt.SignMessageWithSecretKey(secretKey, jsonString)
 }
+*/

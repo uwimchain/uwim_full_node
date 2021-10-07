@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
@@ -73,7 +74,8 @@ func AddBlock() {
 					}
 				}
 			} else {
-				t.Amount, _ = apparel.Round(t.Amount)
+				//t.Amount, _ = apparel.Round(t.Amount)
+				t.Amount = apparel.Round(t.Amount)
 				NewTx(
 					t.Type,
 					t.Nonce,
@@ -119,7 +121,7 @@ func ConfigUpdate(parameter string, value string) {
 	conf.ConfigUpdate(parameter, value)
 }
 
-func ZeroBlock() {
+/*func ZeroBlock() {
 	if memory.IsMainNode() && config.BlockHeight == 0 {
 		if !CheckBlock(0) {
 			var body []deep_actions.Tx
@@ -188,6 +190,7 @@ func ZeroBlock() {
 				),
 				1000000000,
 				apparel.TimestampUnix(),
+				0,
 			))
 			if err != nil {
 				log.Fatal("Zero block zero token transaction comment error:", err)
@@ -239,7 +242,7 @@ func ZeroBlock() {
 			log.Println("Zero block was witted")
 		}
 	}
-}
+}*/
 
 func CheckBlock(height int64) bool {
 	return leveldb.ChainDB.Has(strconv.FormatInt(height, 10))
@@ -310,10 +313,8 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 			switch comment.Title {
 			case "smart_contract_abandonment":
 				{
-					err := a.ScAbandonment(from)
-					if err != nil {
-						log.Println(err)
-					}
+					address := deep_actions.GetAddress(from)
+					address.ScAbandonment()
 					break
 				}
 			}
@@ -322,10 +323,13 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 		}
 	case 3:
 		{
+			commentData := make(map[string]interface{})
+			_ = json.Unmarshal(comment.Data, &commentData)
+
 			switch comment.Title {
 			case "create_token_transaction":
 				{
-					if comment.Data == nil {
+					/*if comment.Data == nil {
 						log.Println("Deep actions new tx error 1: comment data is null")
 						return
 					}
@@ -333,44 +337,80 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 					if err != nil {
 						log.Println("Deep actions new tx error 11:", err)
 						return
-					} else {
-						t.NewToken(t.Type, t.Label, t.Name, t.Proposer, t.Signature, t.Emission, t.Timestamp)
+					}*/
+
+					tokenStandard := apparel.ConvertInterfaceToInt64(commentData["standard"])
+					tokenType := apparel.ConvertInterfaceToInt64(commentData["type"])
+
+					signature, _ := base64.StdEncoding.DecodeString(apparel.ConvertInterfaceToString(commentData["signature"]))
+
+					token := deep_actions.NewToken(tokenType,
+						apparel.ConvertInterfaceToString(commentData["label"]),
+						apparel.ConvertInterfaceToString(commentData["name"]),
+						from, signature,
+						apparel.ConvertInterfaceToFloat64(commentData["emission"]),
+						timestamp,
+						tokenStandard)
+
+					if tokenStandard == 7 && tokenType == 2 {
+						tokenStandardCard := deep_actions.NftStandardCardData{Commission: apparel.ConvertInterfaceToFloat64(commentData["commission"])}
+						tokenStandardCardJson, _ := json.Marshal(tokenStandardCard)
+
+						token.StandardCardHistory = append(token.StandardCardHistory, deep_actions.History{
+							Id:        1,
+							Timestamp: timestamp,
+							TxHash:    hashTx,
+						})
+
+						token.StandardCard = string(tokenStandardCardJson)
 					}
+
+					token.Create()
 
 					break
 				}
 			case "rename_token_transaction":
 				{
-					err := json.Unmarshal(comment.Data, &t)
-					if err != nil {
-						log.Println("Deep actions new tx error 2:", err)
-						return
-					} else {
-						t.RenameToken(t.Label, t.Name)
-					}
+					address := deep_actions.GetAddress(from)
+					token := address.GetToken()
+					//err := json.Unmarshal(comment.Data, &t)
+					//if err != nil {
+					//	log.Println("Deep actions new tx error 2:", err)
+					//	return
+					//} else {
+					token.RenameToken(t.Name)
+					//}
 					break
 				}
 			case "change_token_standard_transaction":
 				{
-					err := json.Unmarshal(comment.Data, &t)
-					if err != nil {
-						log.Println("Deep actions new tx error 3:", err)
-						return
-					} else {
-						t.ChangeTokenStandard(t.Label, t.Standard, timestamp, hashTx)
-					}
+					address := deep_actions.GetAddress(from)
+					token := address.GetToken()
+					//err := json.Unmarshal(comment.Data, &t)
+					//if err != nil {
+					//	log.Println("Deep actions new tx error 3:", err)
+					//	return
+					//} else {
+					token.ChangeTokenStandard(apparel.ConvertInterfaceToInt64(commentData["standard"]), timestamp, hashTx)
+					//}
 					break
 				}
 			case "fill_token_card_transaction":
 				{
-					tokenLabel := GetAddressToken(from).Label
-					t.FillTokenCard(tokenLabel, comment.Data, timestamp, hashTx)
+					//tokenLabel := deep_actions.GetAddress(from).TokenLabel
+					//t.FillTokenCard(tokenLabel, comment.Data, timestamp, hashTx)
+					address := deep_actions.GetAddress(from)
+					token := address.GetToken()
+					token.FillTokenCard(comment.Data, timestamp, hashTx)
 					break
 				}
 			case "fill_token_standard_card_transaction":
 				{
-					tokenLabel := GetAddressToken(from).Label
-					t.FillTokenStandardCard(tokenLabel, comment.Data, timestamp, hashTx)
+					//tokenLabel := deep_actions.GetAddress(from).TokenLabel
+					//t.FillTokenStandardCard(tokenLabel, comment.Data, timestamp, hashTx)
+					address := deep_actions.GetAddress(from)
+					token := address.GetToken()
+					token.FillTokenStandardCard(comment.Data, timestamp, hashTx)
 					break
 				}
 			}
@@ -380,19 +420,24 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 	}
 
 	if from != "" && to != "" {
-		amount, _ = apparel.Round(amount)
-		tax, _ = apparel.Round(tax)
-		if amount != 0 {
-			a.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
+		amount = apparel.Round(amount)
+		tax = apparel.Round(tax)
 
-			a.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
+		addressFrom := deep_actions.GetAddress(from)
+		addressTo := deep_actions.GetAddress(to)
+
+		addressProposer := deep_actions.GetAddress(proposer)
+		if amount != 0 {
+			addressFrom.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
+
+			addressTo.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
 		}
 
 		if tax != 0 {
-			a.UpdateBalance(from, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), false)
+			addressFrom.UpdateBalance(from, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), false)
 
 			if !memory.DownloadBlocks {
-				a.UpdateBalance(proposer, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), true)
+				addressProposer.UpdateBalance(proposer, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), true)
 			}
 		}
 
@@ -465,33 +510,34 @@ func GetPrevBlockHash() string {
 	return prevHash
 }
 
-func GetBalance(address string) []deep_actions.Balance {
-	row := a.GetAddress(address)
-	Addr := deep_actions.Address{}
+func GetBalance(addressString string) []deep_actions.Balance {
+	address := deep_actions.GetAddress(addressString)
+	//Addr := deep_actions.Address{}
 
-	if row != "" {
-		err := json.Unmarshal([]byte(row), &Addr)
-		if err != nil {
-			log.Println("Get balance error:", err)
-		}
-	}
+	//if row != "" {
+	//	err := json.Unmarshal([]byte(row), &Addr)
+	//	if err != nil {
+	//		log.Println("Get balance error:", err)
+	//	}
+	//}
 
-	return Addr.Balance
+	//return Addr.Balance
+	return address.Balance
 }
 
-func GetBalanceForToken(address string, tokenLabel string) deep_actions.Balance {
-	row := a.GetAddress(address)
-	Addr := deep_actions.Address{}
+func GetBalanceForToken(addressString string, tokenLabel string) deep_actions.Balance {
+	address := deep_actions.GetAddress(addressString)
+	//Addr := deep_actions.Address{}
 	tokenBalance := deep_actions.Balance{}
 
-	if row != "" {
-		err := json.Unmarshal([]byte(row), &Addr)
-		if err != nil {
-			log.Println("Get balance error:", err)
-		}
-	}
+	//if row != "" {
+	//	err := json.Unmarshal([]byte(row), &Addr)
+	//	if err != nil {
+	//		log.Println("Get balance error:", err)
+	//	}
+	//}
 
-	for _, i := range Addr.Balance {
+	for _, i := range address.Balance {
 		if i.TokenLabel == tokenLabel {
 			return i
 		}
@@ -519,31 +565,32 @@ func GetScBalance(address string) []deep_actions.Balance {
 	return balance
 }
 
-func GetAddressToken(address string) deep_actions.Token {
-	row := a.GetAddress(address)
-	token := deep_actions.Token{}
+//func GetAddressToken(address string) *deep_actions.Token {
+//row := a.GetAddress(address)
+//address := GetAddress(address)
+//token := deep_actions.Token{}
 
-	if row != "" {
-		Addr := deep_actions.Address{}
-		err := json.Unmarshal([]byte(row), &Addr)
-		if err != nil {
-			log.Println("Get token from address error 1:", err)
-		} else {
+//if row != "" {
+//	Addr := deep_actions.Address{}
+//	err := json.Unmarshal([]byte(row), &Addr)
+//	if err != nil {
+//		log.Println("Get token from address error 1:", err)
+//	} else {
+//
+//		row = GetTokenJson(Addr.TokenLabel)
+//		if row != "" {
+//			err := json.Unmarshal([]byte(row), &token)
+//			if err != nil {
+//				log.Println("Get token from address error 2:", err)
+//			}
+//		}
+//	}
+//}
 
-			row = GetTokenJson(Addr.TokenLabel)
-			if row != "" {
-				err := json.Unmarshal([]byte(row), &token)
-				if err != nil {
-					log.Println("Get token from address error 2:", err)
-				}
-			}
-		}
-	}
+//return &token
+//}
 
-	return token
-}
-
-func GetAddress(address string) deep_actions.Address {
+/*func GetAddress(address string) deep_actions.Address {
 	row := a.GetAddress(address)
 	addressData := deep_actions.Address{}
 	if row != "" {
@@ -554,38 +601,29 @@ func GetAddress(address string) deep_actions.Address {
 	}
 
 	return addressData
-}
+}*/
 
 func CheckAddressToken(address string) bool {
-	addressData := GetAddress(address)
+	addressData := deep_actions.GetAddress(address)
 	return addressData.TokenLabel != ""
 }
 
-func IsAddressTokenOwner(address string, tokenLabel string) bool {
-	addressData := GetAddress(address)
-	if addressData.TokenLabel == tokenLabel {
-		return true
-	}
+//func CheckAddressScKeeping(address string) bool {
+//if crypt.IsAddressUw(address) {
+//row := a.GetAddress(address)
+//if row != "" {
+//	Addr := deep_actions.Address{}
+//	err := json.Unmarshal([]byte(row), &Addr)
+//	if err != nil {
+//		log.Println("Deep actions check address token error 1:", err)
+//		return true
+//	}
+//	return Addr.ScKeeping
+//}
+//}
 
-	return false
-}
-
-func CheckAddressScKeeping(address string) bool {
-	if crypt.IsAddressUw(address) {
-		row := a.GetAddress(address)
-		if row != "" {
-			Addr := deep_actions.Address{}
-			err := json.Unmarshal([]byte(row), &Addr)
-			if err != nil {
-				log.Println("Deep actions check address token error 1:", err)
-				return true
-			}
-			return Addr.ScKeeping
-		}
-	}
-
-	return true
-}
+//return true
+//}
 
 func GetAllNodesBalances() float64 {
 	rows := leveldb.AddressDB.GetAll(metrics.NodePrefix)
@@ -607,16 +645,12 @@ func GetAllNodesBalances() float64 {
 	return result
 }
 
-func CheckAddress(address string) bool {
-	return leveldb.AddressDB.Has(address)
-}
-
 func CalculateReward(address string) float64 {
 	addressBalance := GetBalanceForToken(address, config.RewardTokenLabel)
 	if config.BlockHeight > config.AnnualBlockHeight {
 		return config.RewardCoefficientStage2
 	} else {
-		reward, _ := apparel.Round((addressBalance.Amount * config.RewardCoefficientStage1) / 100)
+		reward := apparel.Round((addressBalance.Amount * config.RewardCoefficientStage1) / 100)
 		return reward
 	}
 }
@@ -696,7 +730,7 @@ func GetBlockHeight() int64 {
 	result, _ := strconv.ParseInt(GetConfig("block_height"), 10, 64)
 
 	if result == 0 {
-		ZeroBlock()
+		//ZeroBlock()
 	}
 
 	return result
@@ -711,13 +745,13 @@ func GetTokenId() int64 {
 }
 
 func CheckToken(label string) bool {
-	return t.CheckToken(label)
+	return deep_actions.CheckToken(label)
 }
 
 func GetTokens(start, limit int64) (interface{}, error) {
 	var tokens []deep_actions.Token
 	if start < 0 {
-		tokens = t.GetAllTokens()
+		tokens = deep_actions.GetAllTokens()
 	} else {
 		for i := start; i <= start+limit-1; i++ {
 			token, err := GetTokenForId(i)
@@ -764,50 +798,14 @@ func GetTokenJson(label string) string {
 	return t.GetTokenJson(label)
 }
 
-func GetToken(label string) deep_actions.Token {
-	token := deep_actions.Token{}
-	jsonString := token.GetTokenJson(label)
-	_ = json.Unmarshal([]byte(jsonString), &token)
-
-	return token
-}
-
 func AddTokenEmission(tokenLabel string, addEmissionAmount float64) error {
-	token := GetToken(tokenLabel)
+	token := deep_actions.GetToken(tokenLabel)
 
 	if token.Emission+addEmissionAmount > config.MaxEmission {
 		return errors.New("add emission amount tran greater than max emission config parameter")
 	}
 
 	token.AddTokenEmission(addEmissionAmount)
-
-	return nil
-}
-
-func TokenAbandonment(address string, label string) error {
-	if !CheckToken(label) {
-		return errors.New("storage token abandonment error 1: token does not exist")
-	}
-
-	row := a.GetAddress(address)
-	Addr := deep_actions.Address{}
-	err := json.Unmarshal([]byte(row), &Addr)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Storage token abandonment error 2: %v", err))
-	}
-
-	if Addr.TokenLabel != label {
-		return errors.New("Storage token abandonment error 3: this address dont have this token")
-	}
-
-	Addr.TokenLabel = ""
-
-	jsonString, err := json.Marshal(Addr)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Storage token abandonment error 4: %v", err))
-	}
-
-	leveldb.AddressDB.Put(address, string(jsonString))
 
 	return nil
 }

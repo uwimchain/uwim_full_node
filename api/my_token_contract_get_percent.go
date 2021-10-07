@@ -24,7 +24,7 @@ type MyTokenContractGetPercentArgs struct {
 func (api *Api) MyTokenContractGetPercent(args *MyTokenContractGetPercentArgs, result *string) error {
 	args.Mnemonic, args.TokenLabel = apparel.TrimToLower(args.Mnemonic), apparel.TrimToLower(args.TokenLabel)
 	uwAddress := crypt.AddressFromMnemonic(args.Mnemonic)
-	scAddressToken := storage.GetToken(args.TokenLabel)
+	scAddressToken := deep_actions.GetToken(args.TokenLabel)
 	scAddressPublicKey, err := crypt.PublicKeyFromAddress(scAddressToken.Proposer)
 	if err != nil {
 		return err

@@ -91,7 +91,8 @@ func validateStandardCardFields(args *FillTokenStandardCardArgs) int64 {
 		return 7
 	}
 
-	token := storage.GetAddressToken(args.Proposer)
+	address := deep_actions.GetAddress(args.Proposer)
+	token := deep_actions.GetToken(address.TokenLabel)
 	switch token.Standard {
 	case 2:
 		if check := validate2standard(args.StandardCardDataJson); check != 0 {
@@ -108,6 +109,13 @@ func validateStandardCardFields(args *FillTokenStandardCardArgs) int64 {
 			return check
 		}
 		break
+	case 7:
+		if check := validate7standard(args.StandardCardDataJson); check != 0 {
+			return check
+		}
+		break
+	default:
+		return 10
 	}
 
 	return 0
@@ -146,6 +154,16 @@ func validate4standard(data string) int64 {
 				return 142
 			}
 		}
+	}
+
+	return 0
+}
+
+func validate7standard(data string) int64 {
+	tokenStandardCard := deep_actions.NftStandardCardData{}
+	err := json.Unmarshal([]byte(data), &tokenStandardCard)
+	if err != nil {
+		return 171
 	}
 
 	return 0

@@ -27,12 +27,14 @@ type TradeArgs struct {
 }
 
 func NewTradeArgs(scAddress string, uwAddress string, amount float64, tokenLabel string, blockHeight int64, txHash string) *TradeArgs {
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	return &TradeArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TokenLabel: tokenLabel, BlockHeight: blockHeight, TxHash: txHash}
 }
 
 func NewTradeArgsForValidate(scAddress string, uwAddress string, amount float64, tokenLabel string) *TradeArgs {
-	amount, _ = apparel.Round(amount)
+	//amount, _ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	return &TradeArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TokenLabel: tokenLabel}
 }
 

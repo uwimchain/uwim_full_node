@@ -22,7 +22,7 @@ var (
 	Tax                   float64 = 0.001
 	StorageMemoryLifeIter int64   = 30
 	MaxStorageMemory      int64   = 50
-	Version               string  = "v1.5.3"
+	Version               string  = "v1.5.4"
 
 	// Reward config
 	RewardCoefficientStage1 float64 = 1.038107 / ((60 * 60 * 24 / 6) / float64(CalculateBlockWriteTime()))
@@ -52,22 +52,35 @@ var (
 	ChangeTokenStandardCost   float64 = 1
 	FillTokenCardCost         float64 = 1
 	FillTokenStandardCardCost float64 = 1
+	TokenTypes                        = []int64{0, 1, 2} //
+	NftTokenMaxCommission     float64 = 30               // percents
+	NftTokenMinCommission     float64 = 0                // percents
 
 	TaxConversion float64 = 1
 
-	DelegateScAddress   string = "sc12l5h6aaza5mn39ayg79g29n75esp0wwjsuf2zg293gdpuc5rrmpq8k8vxh"
-	DelegateBlockHeight int64  = 6
-	DelegateToken       string = "uwm"
+	// Smart-contracts config
+	// Delegate sc config
+	DelegateScAddress   string = "sc12l5h6aaza5mn39ayg79g29n75esp0wwjsuf2zg293gdpuc5rrmpq8k8vxh" //
+	DelegateBlockHeight int64  = 6                                                               //
+	DelegateToken       string = "uwm"                                                           //
 
-	HolderScAddress string  = "sc1cq56xp5hfks3slpcneaty2r2mnjk28q6ea7e7dw6s7zcl96j2scq4vvfkf"
-	HolderAddCost   float64 = 0.1
-	HolderGetCost   float64 = 0.01
+	// Holder sc config
+	HolderScAddress string  = "sc1cq56xp5hfks3slpcneaty2r2mnjk28q6ea7e7dw6s7zcl96j2scq4vvfkf" //
+	HolderAddCost   float64 = 0.1                                                             //
+	HolderGetCost   float64 = 0.01                                                            //
 
-	VoteScAddress               string = "sc1ksu3zurrs7mgl844wx6unchzwpuhqlhvn9hh2zcp2xvs46g0sx6qh2pq7r"
-	VoteSuperAddress            string = "uw128za3mp36cdzwp5ttr268zx5tmvrs40h639qljystxhc0nsy9zkqxyclqy"
-	VoteAnswerOptionDefaultCost        = 0.5
-	MaxVoteMemory               int    = 10
-	MaxVoteAnswerOptions        int    = 10
+	// Vote sc config
+	VoteScAddress               string = "sc1ksu3zurrs7mgl844wx6unchzwpuhqlhvn9hh2zcp2xvs46g0sx6qh2pq7r" //
+	VoteSuperAddress            string = "uw128za3mp36cdzwp5ttr268zx5tmvrs40h639qljystxhc0nsy9zkqxyclqy" //
+	VoteAnswerOptionDefaultCost        = 0.5                                                             // "uwm"
+	MaxVoteMemory               int    = 10                                                              //
+	MaxVoteAnswerOptions        int    = 10                                                              //
+
+	// Default sc config
+	NftCreateCost             float64 = 0.1   // "uwm"
+	NftTokenElsCountMax       int     = 10000 // token elements
+	NftTokenElMaxDataFieldLen int     = 8000  // symbols
+	NftTokenElCreateLimit     int     = 10    // token elements
 )
 
 func CalculateBlockWriteTime() int64 {

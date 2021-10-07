@@ -26,7 +26,8 @@ func validateTransactionType2(t deep_actions.Tx) error {
 
 		toAddress := crypt.AddressFromPublicKey(metrics.NodePrefix, publicKey)
 
-		reward, _ := apparel.Round(storage.CalculateReward(toAddress))
+		//reward, _ := apparel.Round(storage.CalculateReward(toAddress))
+		reward := apparel.Round(storage.CalculateReward(toAddress))
 		if t.Amount != reward {
 			return errors.New("default reward transaction incorrect reward amount")
 		} else if t.TokenLabel != config.RewardTokenLabel {
@@ -35,7 +36,8 @@ func validateTransactionType2(t deep_actions.Tx) error {
 
 		break
 	case "delegate_reward_transaction":
-		reward, _ := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
+		//reward, _ := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
+		reward := apparel.Round(storage.CalculateReward(config.DelegateScAddress))
 		if t.Amount != reward {
 			return errors.New(
 				fmt.Sprintf("delegate reward transaction incorrect reward amount. My: %g, in transaction: %g",

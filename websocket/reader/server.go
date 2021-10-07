@@ -422,7 +422,8 @@ func downloadBlocks(body string) {
 						case 3:
 							switch t.Comment.Title {
 							case "change_token_standard_transaction":
-								token := storage.GetAddressToken(t.From)
+								address := deep_actions.GetAddress(t.From)
+								token := deep_actions.GetToken(address.TokenLabel)
 								if token.Id == 0 {
 									break
 								}
@@ -536,7 +537,8 @@ func downloadBlocks(body string) {
 								break
 
 							case "fill_token_standard_card_transaction":
-								token := storage.GetAddressToken(t.From)
+								address := deep_actions.GetAddress(t.From)
+								token := deep_actions.GetToken(address.TokenLabel)
 								if token.Label == "" {
 									break
 								}

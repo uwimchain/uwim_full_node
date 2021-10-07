@@ -7,6 +7,7 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/custom_turing_token_con"
+	"node/blockchain/contracts/default_con"
 	"node/blockchain/contracts/delegate_con/delegate_validation"
 	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/holder_con"
@@ -58,25 +59,24 @@ func validateTransactionType1(t deep_actions.Tx) error {
 
 		break
 	case "smart_contract_abandonment":
-		{
-			if t.Amount != 1 {
-				return errors.New("amount of transaction of this type must be 1")
-			}
-
-			if t.TokenLabel != config.BaseToken {
-				return errors.New("token label of transaction of this type must be uwm")
-			}
-
-			if t.To != config.GenesisAddress {
-				return errors.New("transactions of this type must be send to genesis address")
-			}
-
-			if storage.CheckAddressScKeeping(t.From) {
-				return errors.New("address haven`t smart-contract")
-			}
-
-			break
+		if t.Amount != 1 {
+			return errors.New("amount of transaction of this type must be 1")
 		}
+
+		if t.TokenLabel != config.BaseToken {
+			return errors.New("token label of transaction of this type must be uwm")
+		}
+
+		if t.To != config.GenesisAddress {
+			return errors.New("transactions of this type must be send to genesis address")
+		}
+
+		//if storage.CheckAddressScKeeping(t.From) {
+		if !deep_actions.GetAddress(t.From).ScKeeping {
+			return errors.New("address haven`t smart-contract")
+		}
+
+		break
 	case "my_token_contract_confirmation_transaction":
 		validateConfirmation := my_token_con.ValidateConfirmation(t.To, t.From)
 		if validateConfirmation != 0 {
@@ -126,66 +126,56 @@ func validateTransactionType1(t deep_actions.Tx) error {
 		}
 		break
 	case "trade_token_contract_add_transaction":
-		{
-			validateAdd := trade_token_con.ValidateAdd(
-				trade_token_con.NewTradeArgsForValidate(t.To, t.From, t.Amount,
-					t.TokenLabel))
-			if validateAdd != 0 {
-				return errors.New(
-					fmt.Sprintf("error for validate trade token contract add transaction: %d", validateAdd))
-			}
-			break
+		validateAdd := trade_token_con.ValidateAdd(
+			trade_token_con.NewTradeArgsForValidate(t.To, t.From, t.Amount,
+				t.TokenLabel))
+		if validateAdd != 0 {
+			return errors.New(
+				fmt.Sprintf("error for validate trade token contract add transaction: %d", validateAdd))
 		}
+		break
 	case "trade_token_contract_swap_transaction":
-		{
-			validateSwap := trade_token_con.ValidateSwap(trade_token_con.NewTradeArgsForValidate(t.To,
-				t.From, t.Amount, t.TokenLabel))
-			if validateSwap != 0 {
-				return errors.New(
-					fmt.Sprintf("error for validate trade token contract swap transaction: %d", validateSwap))
-			}
-			break
+		validateSwap := trade_token_con.ValidateSwap(trade_token_con.NewTradeArgsForValidate(t.To,
+			t.From, t.Amount, t.TokenLabel))
+		if validateSwap != 0 {
+			return errors.New(
+				fmt.Sprintf("error for validate trade token contract swap transaction: %d", validateSwap))
 		}
+		break
 	case "trade_token_contract_get_liq_transaction":
-		{
-			validateGetLiq := trade_token_con.ValidateGetLiq(
-				trade_token_con.NewGetArgsForValidate(t.To, t.From, t.TokenLabel))
-			if validateGetLiq != 0 {
-				return errors.New(
-					fmt.Sprintf("error for validate trade token contract get liq transaction: %d", validateGetLiq))
-			}
-			break
+		validateGetLiq := trade_token_con.ValidateGetLiq(
+			trade_token_con.NewGetArgsForValidate(t.To, t.From, t.TokenLabel))
+		if validateGetLiq != 0 {
+			return errors.New(
+				fmt.Sprintf("error for validate trade token contract get liq transaction: %d", validateGetLiq))
 		}
+		break
 	case "trade_token_contract_get_com_transaction":
-		{
-			validateGetCom := trade_token_con.ValidateGetCom(trade_token_con.NewGetArgsForValidate(t.To,
-				t.From, t.TokenLabel))
+		validateGetCom := trade_token_con.ValidateGetCom(trade_token_con.NewGetArgsForValidate(t.To,
+			t.From, t.TokenLabel))
+		if validateGetCom != 0 {
+			return errors.New(
+				fmt.Sprintf("error for validate trade token contract get com transaction: %d", validateGetCom))
+		}
+		break
+	case "trade_token_contract_fill_config_transaction":
+		var scAddressConfigData trade_token_con.TradeConfig
+
+		if t.Comment.Data != nil {
+			err := json.Unmarshal(t.Comment.Data, &scAddressConfigData)
+			if err != nil {
+				return errors.New(
+					fmt.Sprintf("error 1 for validate trade token contract get com transaction: %v", err))
+			}
+			validateGetCom := trade_token_con.ValidateFillConfig(
+				trade_token_con.NewFillConfigArgs(t.To, scAddressConfigData.Commission))
 			if validateGetCom != 0 {
 				return errors.New(
-					fmt.Sprintf("error for validate trade token contract get com transaction: %d", validateGetCom))
+					fmt.Sprintf("error 2 for validate trade token contract get com transaction: %d",
+						validateGetCom))
 			}
-			break
 		}
-	case "trade_token_contract_fill_config_transaction":
-		{
-			var scAddressConfigData trade_token_con.TradeConfig
-
-			if t.Comment.Data != nil {
-				err := json.Unmarshal(t.Comment.Data, &scAddressConfigData)
-				if err != nil {
-					return errors.New(
-						fmt.Sprintf("error 1 for validate trade token contract get com transaction: %v", err))
-				}
-				validateGetCom := trade_token_con.ValidateFillConfig(
-					trade_token_con.NewFillConfigArgs(t.To, scAddressConfigData.Commission))
-				if validateGetCom != 0 {
-					return errors.New(
-						fmt.Sprintf("error 2 for validate trade token contract get com transaction: %d",
-							validateGetCom))
-				}
-			}
-			break
-		}
+		break
 	case "holder_contract_add_transaction":
 		if t.Tax != config.HolderAddCost {
 			return errors.New("error for validate holder contract add transaction 1: invalid tax amount")
@@ -196,7 +186,8 @@ func validateTransactionType1(t deep_actions.Tx) error {
 			return errors.New(fmt.Sprintf("error for validate holder contract add transaction 2: %v", err))
 		}
 
-		amount, _ := apparel.Round(t.Amount)
+		//amount, _ := apparel.Round(t.Amount)
+		amount := apparel.Round(t.Amount)
 		validateAdd := holder_con.ValidateAdd(t.From,
 			apparel.ConvertInterfaceToString(commentData["recipient_address"]),
 			apparel.ConvertInterfaceToString(commentData["token_label"]),
@@ -303,6 +294,45 @@ func validateTransactionType1(t deep_actions.Tx) error {
 	case "custom_turing_token_delegate_transaction":
 		if err := custom_turing_token_con.ValidateDelegate(t.To, t.TokenLabel); err != 0 {
 			return errors.New(fmt.Sprintf("error for validate custom turing token contract delegate transaction 2: %v", err))
+		}
+		break
+	case "default_contract_create_transaction":
+		//commentData := make(map[string]interface{})
+		var commentData []interface{}
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if commentData == nil {
+			return errors.New("error for validate default contract create transaction 1: empty fields")
+		}
+
+		if len(commentData) > config.NftTokenElCreateLimit {
+			return errors.New("error for validate default contract create transaction 2: limit token elements to one transaction")
+		}
+
+		for i := range commentData {
+			// convert txCommentData element to map string interface for validating
+			el := apparel.ConvertInterfaceToMapStringInterface(commentData[i])
+			if err := default_con.ValidateCreate(apparel.ConvertInterfaceToString(el["name"]), t.From, t.To,
+				t.TokenLabel, apparel.ConvertInterfaceToFloat64(el["price"]), t.Amount, apparel.ConvertInterfaceToString(el["data"])); err != 0 {
+				return errors.New(fmt.Sprintf("error for validate default contract create transaction 3: %v", err))
+			}
+		}
+		break
+	case "default_contract_buy_transaction":
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if err := default_con.ValidateBuy(apparel.ConvertInterfaceToInt64(commentData["id"]), t.To,
+			t.From, t.TokenLabel, t.Amount); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate default contract buy transaction 1: %v", err))
+		}
+		break
+	case "default_contract_set_price_transaction":
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+
+		if err := default_con.ValidateSetPrice(apparel.ConvertInterfaceToInt64(commentData["id"]), t.From, t.To, t.TokenLabel); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate default contract buy transaction 1: %v", err))
 		}
 		break
 	default:

@@ -59,6 +59,24 @@ func (tx *Tx) GetTx(address string) string {
 	return leveldb.TxDB.Get(address).Value
 }
 
+func (tx *Tx) SetSignature(secretKey []byte) {
+	jsonString, _ := json.Marshal(Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+	tx.Signature = crypt.SignMessageWithSecretKey(secretKey, jsonString)
+}
+
+func (tx *Tx) SetHash() {
+	jsonString, _ := json.Marshal(tx)
+	tx.HashTx = crypt.GetHash(jsonString)
+}
+
 type Chain struct {
 	Hash   string `json:"hash"`
 	Header Header `json:"header"`

@@ -98,7 +98,6 @@ func PublicKeyFromSecretKey(secretKey []byte) []byte {
 }
 
 // TransactionRaw
-
 type TxRaw struct {
 	Nonce      int64        `json:"nonce"`
 	From       string       `json:"from"`
@@ -144,9 +143,13 @@ func DecodeTransactionRaw(transactionRaw string) (*TxRaw, error) {
 	stringCipherText = strings.ReplaceAll(stringCipherText, "\x02", "")
 	stringCipherText = strings.ReplaceAll(stringCipherText, "\x03", "")
 	stringCipherText = strings.ReplaceAll(stringCipherText, "\x04", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x05", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\x06", "")
 	stringCipherText = strings.ReplaceAll(stringCipherText, "\x10", "")
 	stringCipherText = strings.ReplaceAll(stringCipherText, "\x0f", "")
 	stringCipherText = strings.ReplaceAll(stringCipherText, "\x0e", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\b", "")
+	stringCipherText = strings.ReplaceAll(stringCipherText, "\a", "")
 
 	err = json.Unmarshal([]byte(stringCipherText), &txRaw)
 	if err != nil {

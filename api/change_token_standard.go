@@ -34,7 +34,8 @@ func (api *Api) ChangeTokenStandard(args *ChangeTokenStandardArgs, result *strin
 		return errors.New(strconv.FormatInt(check, 10))
 	}
 
-	t := storage.GetAddressToken(proposer)
+	address := deep_actions.GetAddress(proposer)
+	t := deep_actions.GetToken(address.TokenLabel)
 
 	if t.Label == "" {
 		return errors.New(strconv.FormatInt(9, 10))
@@ -104,24 +105,29 @@ func validateChangeTokenStandard(mnemonic, proposer string, standard int64) int6
 		return 5
 	}
 
-	t := storage.GetAddressToken(proposer)
-	if !storage.CheckToken(t.Label) {
+	address := deep_actions.GetAddress(proposer)
+	token := deep_actions.GetToken(address.TokenLabel)
+	if token == nil {
 		return 7
 	}
 
-	if standard == t.Standard {
+	if standard == token.Standard {
 		return 8
 	}
 
-	if t.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, standard) {
+	if token.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, standard) {
 		return 9
 	}
 
-	if t.Standard == 1 && !apparel.SearchInArray([]int64{3, 4, 5}, standard) {
+	if token.Standard == 1 && !apparel.SearchInArray([]int64{3, 4, 5}, standard) {
 		return 9
 	}
 
-	if t.Standard == 3 && !apparel.SearchInArray([]int64{4, 6}, standard) {
+	if token.Standard == 3 && !apparel.SearchInArray([]int64{4, 6}, standard) {
+		return 9
+	}
+
+	if token.Standard == 7 || token.Standard == 2 {
 		return 9
 	}
 

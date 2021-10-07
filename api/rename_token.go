@@ -147,7 +147,8 @@ func validateRenameToken(args *RenameTokenArgs) int64 {
 		return 9
 	}
 
-	token := storage.GetAddressToken(args.Proposer)
+	address := deep_actions.GetAddress(args.Proposer)
+	token := deep_actions.GetToken(address.TokenLabel)
 	if token.Label == "" {
 		return 10
 	}

@@ -23,7 +23,8 @@ type BuyArgs struct {
 }
 
 func NewBuyArgs(scAddress string, uwAddress string, tokenLabel string, amount float64, txHash string, blockHeight int64) (*BuyArgs, error) {
-	amount,_ = apparel.Round(amount)
+	//amount,_ = apparel.Round(amount)
+	amount = apparel.Round(amount)
 	return &BuyArgs{ScAddress: scAddress, UwAddress: uwAddress, TokenLabel: tokenLabel, Amount: amount, TxHash: txHash, BlockHeight: blockHeight}, nil
 }
 

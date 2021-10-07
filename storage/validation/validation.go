@@ -83,15 +83,15 @@ func ValidateTxs(transactions []deep_actions.Tx) error {
 			if fromAddressIdx := sort.Search(len(addresses),
 				func(i int) bool { return addresses[i].Address >= transaction.From }); fromAddressIdx != len(addresses) {
 				address := &addresses[fromAddressIdx]
-				if err := ValidateTx(transaction, address); err != nil {
+				if err := validateTx(transaction, address); err != nil {
 					return err
-				} else {
-					if tokenIdx := sort.Search(len(address.Balance),
-						func(i int) bool { return address.Balance[i].TokenLabel >= transaction.TokenLabel });
-						tokenIdx != len(address.Balance) {
-						token := &address.Balance[tokenIdx]
-						token.Amount -= transaction.Amount + apparel.CalcTax(transaction.Amount)
-					}
+				}
+
+				if tokenIdx := sort.Search(len(address.Balance),
+					func(i int) bool { return address.Balance[i].TokenLabel >= transaction.TokenLabel });
+					tokenIdx != len(address.Balance) {
+					token := &address.Balance[tokenIdx]
+					token.Amount -= transaction.Amount + apparel.CalcTax(transaction.Amount)
 				}
 			}
 		}
@@ -105,10 +105,10 @@ func fromAddressList(transactions []deep_actions.Tx) ([]deep_actions.Address, er
 	var transactionsAddresses []deep_actions.Address
 	for _, transaction := range transactions {
 		if transaction.From != config.VoteSuperAddress {
-			if row := a.GetAddress(transaction.From); row != "" {
-				address := deep_actions.Address{}
-				_ = json.Unmarshal([]byte(row), &address)
-				allTransactionsAddresses = append(allTransactionsAddresses, address)
+			if address := deep_actions.GetAddress(transaction.From); address != nil {
+				//address := deep_actions.Address{}
+				//_ = json.Unmarshal([]byte(row), &address)
+				allTransactionsAddresses = append(allTransactionsAddresses, *address)
 			} else {
 				return nil, errors.New("senders address does not exist")
 			}
@@ -125,7 +125,7 @@ func fromAddressList(transactions []deep_actions.Tx) ([]deep_actions.Address, er
 	return transactionsAddresses, nil
 }
 
-func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) error {
+func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) error {
 
 	publicKey, err := crypt.PublicKeyFromAddress(transaction.From)
 	if err != nil {
@@ -161,7 +161,7 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		return errors.New("transaction block height is empty")
 	}
 
-	NotZeroCommentTitles := []string{
+	NotZeroAmountCommentTitles := []string{
 		"undelegate_contract_transaction",
 		"my_token_contract_confirmation_transaction",
 		"trade_token_contract_get_com_transaction",
@@ -174,9 +174,11 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		"custom_turing_token_de_delegate_another_address_transaction",
 		"custom_turing_token_get_reward_transaction",
 		"custom_turing_token_re_delegate_transaction",
+		"default_contract_create_el_transaction",
+		"default_contract_buy_transaction",
 	}
 
-	if CheckInStringArray(NotZeroCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
+	if CheckInStringArray(NotZeroAmountCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
 		return errors.New("zero or negative amount")
 	}
 
@@ -248,6 +250,7 @@ func ValidateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 			"trade_token_contract_fill_config_transaction",
 			"vote_contract_start_transaction",
 			"vote_contract_hard_stop_transaction",
+			"default_contract_set_price_transaction",
 		}
 
 		if CheckInStringArray(zeroTaxCommentTitles, transaction.Comment.Title) && transaction.Tax != 0 {
@@ -264,6 +267,20 @@ func CheckInStringArray(stringArray []string, findable string) bool {
 	}
 
 	for _, i := range stringArray {
+		if i == findable {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CheckInInt64Array(int64Array []int64, findable int64) bool {
+	if int64Array == nil {
+		return false
+	}
+
+	for _, i := range int64Array {
 		if i == findable {
 			return true
 		}
