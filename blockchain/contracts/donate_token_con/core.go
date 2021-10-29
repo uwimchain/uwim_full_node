@@ -1,13 +1,10 @@
 package donate_token_con
 
 import (
-	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -56,9 +53,14 @@ func ChangeStandard(scAddress string) error {
 		txs = append(txs, tx)
 	}
 
-	if txs != nil && memory.IsNodeProposer() {
+	if txs == nil {
+		return nil
+	}
+	
+	//if txs != nil && memory.IsNodeProposer() {
 		for _, i := range txs {
-			tx := contracts.NewTx(
+			contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, i.Comment.Data)
+			/*tx := contracts.NewTx(
 				i.Type,
 				i.Nonce,
 				i.HashTx,
@@ -88,9 +90,9 @@ func ChangeStandard(scAddress string) error {
 			tx.HashTx = crypt.GetHash(jsonString)
 
 			contracts.SendTx(*tx)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)*/
 		}
-	}
+	//}
 
 	return nil
 }

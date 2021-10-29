@@ -62,8 +62,12 @@ func (api *Api) SendTransaction(args *SendTransactionArgs, result *string) error
 
 	switch args.Type {
 	case "undelegate_contract_transaction":
-		undelegateCommentData := *delegate_con.NewUndelegateCommentData(args.Amount)
-		jsonString, _ := json.Marshal(undelegateCommentData)
+		//undelegateCommentData := *delegate_con.NewUndelegateCommentData(args.Amount)
+		//jsonString, _ := json.Marshal(undelegateCommentData)
+		//comment.Data = jsonString
+		//amount = 0
+		delegateArgs, _ := delegate_con.NewDelegateArgs(args.From, args.Amount)
+		jsonString, _ := json.Marshal(*delegateArgs)
 		comment.Data = jsonString
 		amount = 0
 		break
@@ -198,7 +202,7 @@ func validateTransaction(args *SendTransactionArgs) int64 {
 		return 10
 	}
 
-	if !storage.CheckToken(args.TokenLabel) {
+	if !deep_actions.CheckToken(args.TokenLabel) {
 		return 11
 	}
 

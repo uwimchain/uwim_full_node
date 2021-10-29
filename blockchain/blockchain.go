@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"node/apparel"
-	"node/blockchain/contracts"
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/custom_turing_token_con"
 	"node/blockchain/contracts/default_con"
@@ -38,7 +37,7 @@ var NodeOperationMemory NodeOperation
 func Init() {
 	log.Println("Block generator started.")
 
-	sender.DownloadBlocksFromNodes()
+	//sender.DownloadBlocksFromNodes()
 
 	Worker()
 }
@@ -113,7 +112,7 @@ func Worker() {
 						if votes != nil {
 							block := storage.Block{
 								Height:            config.BlockHeight,
-								PrevHash:          storage.GetBlockHash(config.BlockHeight - 1),
+								PrevHash:          deep_actions.GetChain(config.BlockHeight - 1).Hash,
 								Timestamp:         strconv.FormatInt(apparel.TimestampUnix(), 10),
 								Proposer:          config.NodeNdAddress,
 								ProposerSignature: nil,
@@ -410,7 +409,18 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 		// pass
 		break
 	case "delegate_contract_transaction":
-		if t.To == config.DelegateScAddress {
+		delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract delegate transaction error 1:", err)
+			break
+		}
+
+		err = delegate_con.Delegate(delegateArgs)
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract delegate transaction error 2:", err)
+			break
+		}
+		/*if t.To == config.DelegateScAddress {
 			timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
 			err := delegate_con.Delegate(t.From, t.Amount, timestamp)
 			if err != nil {
@@ -421,10 +431,29 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 		} else {
 			log.Println(
 				"Deep actions new tx delegate contract transaction error 2")
-		}
+		}*/
 		break
 	case "undelegate_contract_transaction":
-		if t.To == config.DelegateScAddress {
+		commentData := make(map[string]interface{})
+		err := json.Unmarshal(t.Comment.Data, &commentData)
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 1:", err)
+			break
+		}
+
+		delegateArgs, err := delegate_con.NewDelegateArgs(t.From, apparel.ConvertInterfaceToFloat64(commentData["undelegate_amount"]))
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 2:", err)
+			break
+		}
+
+		err = delegate_con.SendUnDelegate(delegateArgs)
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 3:", err)
+			break
+		}
+
+		/*if t.To == config.DelegateScAddress {
 			undelegateCommentData := delegate_con.UndelegateCommentData{}
 			_ = json.Unmarshal(t.Comment.Data, &undelegateCommentData)
 			err := delegate_con.SendUnDelegate(t.From, undelegateCommentData.Amount)
@@ -436,7 +465,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 		} else {
 			log.Println(
 				"Deep actions new tx undelegate contract transaction error 2")
-		}
+		}*/
 		break
 	case "my_token_contract_confirmation_transaction":
 		confirmationArgs, err := my_token_con.NewConfirmationArgs(t.To, t.From,
@@ -456,7 +485,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 		break
 	case "my_token_contract_get_percent_transaction":
 		getPercentAgs, err := my_token_con.NewGetPercentArgs(t.To, t.From,
-			t.TokenLabel, t.Height, t.HashTx)
+			t.TokenLabel, t.Amount, t.Height, t.HashTx)
 		if err != nil {
 			log.Println(
 				"Deep actions new tx my contract get percent transaction error 1:",
@@ -565,7 +594,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 		}
 		break
 	case "trade_token_contract_fill_config_transaction":
-		var (
+		/*var (
 			scAddressConfig     contracts.Config
 			scAddressConfigData trade_token_con.TradeConfig
 		)
@@ -595,10 +624,11 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 					break
 				}
 			}
-		}
-
-		err = trade_token_con.FillConfig(trade_token_con.NewFillConfigArgs(t.To,
-			scAddressConfigData.Commission))
+		}*/
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(t.Comment.Data, &commentData)
+		err := trade_token_con.FillConfig(trade_token_con.NewFillConfigArgs(t.To,
+			apparel.ConvertInterfaceToFloat64(commentData["commission"])))
 		if err != nil {
 			log.Println(
 				"Deep actions new tx trade token contract fill config transaction error 2:",
@@ -1107,13 +1137,25 @@ func ExecutionSmartContractsWithType5Transaction(t deep_actions.Tx) {
 	switch t.Comment.Title {
 	case "undelegate_contract_transaction":
 		if t.From != config.DelegateScAddress {
-			log.Println("Deep actions new tx undelegate contract transaction error 2")
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 1")
 		}
 
-		timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
-		err := delegate_con.UnDelegate(t.To, t.Amount, timestamp)
+		commentData := make(map[string]interface{})
+		err := json.Unmarshal(t.Comment.Data, &commentData)
 		if err != nil {
-			log.Println("Deep actions new tx undelegate contract transaction error 1:", err)
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 2:", err)
+			break
+		}
+
+		delegateArgs, err := delegate_con.NewDelegateArgs(t.To, t.Amount)
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 3:", err)
+			break
+		}
+
+		err = delegate_con.UnDelegate(delegateArgs)
+		if err != nil {
+			log.Println("Deep actions new tx delegate contract undelegate transaction error 4:", err)
 		}
 
 		break

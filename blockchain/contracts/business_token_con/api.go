@@ -22,9 +22,9 @@ func GetPartner(scAddress string, address string) Partner {
 	_ = json.Unmarshal([]byte(jsonString), &partners)
 
 	if partners != nil {
-		for _, i := range partners {
-			if i.Address == address {
-				return i
+		for i, _ := range partners {
+			if partners[i].Address == address {
+				return partners[i]
 			}
 		}
 	}

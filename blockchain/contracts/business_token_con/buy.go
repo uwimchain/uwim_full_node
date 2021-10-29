@@ -9,7 +9,6 @@ import (
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
-	"node/memory"
 	"node/storage"
 	"strconv"
 )
@@ -99,53 +98,20 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	txAmount := apparel.Round(amount * scAddressTokenStandardCard.Conversion)
 
 	//txTax, _ := apparel.Round(apparel.CalcTax(txAmount))
-	txTax := apparel.Round(apparel.CalcTax(txAmount))
+	//txTax := apparel.Round(apparel.CalcTax(txAmount))
 	if scAddressBalanceForTokenUwm.Amount < amount || scAddressBalanceForTokenUwm.Amount-amount < 1 {
 		return errors.New(fmt.Sprintf("error 8: smart-contract low balance for token \"%s\"", scAddressToken.Label))
 	}
 
 	timestamp := apparel.TimestampUnix()
+	timestampD := strconv.FormatInt(timestamp, 10)
 
-	txCommentSign, err := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign := contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
-
-	tx := contracts.NewTx(
-		5,
-		apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-		"",
-		config.BlockHeight,
-		scAddress,
-		uwAddress,
-		txAmount,
-		scAddressToken.Label,
-		strconv.FormatInt(timestamp, 10),
-		txTax,
-		crypt.SignMessageWithSecretKey(
-			config.NodeSecretKey,
-			[]byte(config.NodeNdAddress),
-		),
-		*contracts.NewComment(
-			"default_transaction",
-			txCommentSign,
-		),
 	)
 
-	jsonString, _ := json.Marshal(contracts.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
-
 	if scAddressTokenStandardCard.Partners != nil {
+		log.Println("1")
 		scAddressPartnersJson := ContractsDB.Get(scAddress).Value
 		var scAddressPartners []Partner
 		if scAddressPartnersJson != "" {
@@ -157,7 +123,6 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 
 		if scAddressPartners != nil {
 			for _, i := range scAddressTokenStandardCard.Partners {
-				//partnerReward, _ := apparel.Round(amount * (i.Percent / 100))
 				partnerReward := apparel.Round(amount * (i.Percent / 100))
 				if partnerReward <= 0 {
 					continue
@@ -168,11 +133,17 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 							for kdx, k := range j.Balance {
 								if k.TokenLabel == config.BaseToken {
 									scAddressPartners[jdx].Balance[kdx].Amount += partnerReward
-									scAddressPartners[jdx].Balance[jdx].UpdateTime += strconv.FormatInt(timestamp, 10)
+									scAddressPartners[jdx].Balance[jdx].UpdateTime = strconv.FormatInt(timestamp, 10)
 								}
 								break
 							}
 							break
+						} else {
+							scAddressPartners[jdx].Balance = append(scAddressPartners[jdx].Balance, contracts.Balance{
+								TokenLabel: config.BaseToken,
+								Amount:     partnerReward,
+								UpdateTime: strconv.FormatInt(timestamp, 10),
+							})
 						}
 					}
 				}
@@ -192,10 +163,11 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 12: %v", err))
 	}
 
-	if memory.IsNodeProposer() {
+	/*if memory.IsNodeProposer() {
 		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	}*/
+	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction", txCommentSign)
 
 	return nil
 }

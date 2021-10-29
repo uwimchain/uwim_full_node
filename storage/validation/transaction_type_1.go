@@ -8,14 +8,13 @@ import (
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/custom_turing_token_con"
 	"node/blockchain/contracts/default_con"
-	"node/blockchain/contracts/delegate_con/delegate_validation"
+	"node/blockchain/contracts/delegate_con"
 	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/holder_con"
 	"node/blockchain/contracts/my_token_con"
 	"node/blockchain/contracts/trade_token_con"
 	"node/blockchain/contracts/vote_con"
 	"node/config"
-	"node/storage"
 	"node/storage/deep_actions"
 )
 
@@ -29,13 +28,15 @@ func validateTransactionType1(t deep_actions.Tx) error {
 		//pass
 		break
 	case "delegate_contract_transaction":
-		if t.To != config.DelegateScAddress {
-			return errors.New("delegate transaction send not to this smart-contract address")
+		//if t.To != config.DelegateScAddress {
+		//	return errors.New("delegate transaction send not to this smart-contract address")
+		//}
+		if validateDelegate := delegate_con.ValidateDelegate(t.To, t.From); validateDelegate != 0 {
+			return errors.New(fmt.Sprintf("error for validate delegate contract delegate transaction: %d", validateDelegate))
 		}
-
 		break
 	case "undelegate_contract_transaction":
-		if t.To != config.DelegateScAddress {
+		/*if t.To != config.DelegateScAddress {
 			return errors.New("undelegate transaction send not to this smart-contract address")
 		}
 
@@ -55,8 +56,10 @@ func validateTransactionType1(t deep_actions.Tx) error {
 				t.Nonce != t.Nonce {
 				return errors.New("only one undelegate transaction can be send")
 			}
+		}*/
+		if validateUnDelegate := delegate_con.ValidateUnDelegate(t.To, t.From, t.Amount); validateUnDelegate != 0 {
+			return errors.New(fmt.Sprintf("error for validate delegate contract undelegate transaction: %d", validateUnDelegate))
 		}
-
 		break
 	case "smart_contract_abandonment":
 		if t.Amount != 1 {
@@ -116,13 +119,13 @@ func validateTransactionType1(t deep_actions.Tx) error {
 				fmt.Sprintf("error for validate business token contract get percent transaction: %v", err))
 		}
 
-		validateBuy := business_token_con.ValidateGetPercent(t.To, t.From,
+		validateGetPercent := business_token_con.ValidateGetPercent(t.To, t.From,
 			apparel.ConvertInterfaceToString(data["token_label"]),
 			apparel.ConvertInterfaceToFloat64(data["amount"]))
-		if validateBuy != 0 {
+		if validateGetPercent != 0 {
 			return errors.New(
 				fmt.Sprintf("error for validate business token contract get percent transaction: %d",
-					validateBuy))
+					validateGetPercent))
 		}
 		break
 	case "trade_token_contract_add_transaction":

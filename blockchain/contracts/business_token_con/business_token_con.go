@@ -7,7 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
 	"node/memory"
 	"strconv"
 )
@@ -104,53 +103,18 @@ func UpdatePartners(scAddress string) error {
 						for jdx, j := range i.Balance {
 
 							timestamp := apparel.TimestampUnix()
+							timestampD := strconv.FormatInt(timestamp, 10)
 
 							amount := j.Amount
 
 							refundPartners[idx].Balance[jdx].Amount = 0
 							refundPartners[idx].Balance[jdx].UpdateTime = strconv.FormatInt(timestamp, 10)
 
-							tax := apparel.CalcTax(amount)
-
-							commentSign, err := json.Marshal(contracts.NewBuyTokenSign(
+							txCommentSign := contracts.NewBuyTokenSign(
 								config.NodeNdAddress,
-							))
-							if err != nil {
-								return errors.New(fmt.Sprintf("error 7: %v", err))
-							}
-
-							tx := contracts.NewTx(
-								5,
-								apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-								"",
-								config.BlockHeight,
-								scAddress,
-								i.Address,
-								amount,
-								j.TokenLabel,
-								strconv.FormatInt(timestamp, 10),
-								tax,
-								nil,
-								*contracts.NewComment(
-									"refund_transaction",
-									commentSign,
-								),
 							)
 
-							jsonString, _ := json.Marshal(contracts.Tx{
-								Type:       tx.Type,
-								Nonce:      tx.Nonce,
-								From:       tx.From,
-								To:         tx.To,
-								Amount:     tx.Amount,
-								TokenLabel: tx.TokenLabel,
-								Comment:    tx.Comment,
-							})
-							tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-							if memory.IsNodeProposer() {
-								contracts.SendTx(*tx)
-								*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-							}
+							contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, i.Address, amount, j.TokenLabel, "default_transaction", txCommentSign)
 						}
 					}
 
@@ -158,53 +122,13 @@ func UpdatePartners(scAddress string) error {
 						amount := j.Amount * (i.Percent / 100)
 
 						timestamp := apparel.TimestampUnix()
+						timestampD := strconv.FormatInt(timestamp, 10)
 
-						tax := apparel.CalcTax(amount)
-						nonce := apparel.GetNonce(apparel.UnixToString(timestamp))
-
-						commentSign, err := json.Marshal(contracts.NewBuyTokenSign(
+						txCommentSign:=contracts.NewBuyTokenSign(
 							config.NodeNdAddress,
-						))
-						if err != nil {
-							return errors.New(fmt.Sprintf("error 7: %v", err))
-						}
-
-						tx := contracts.NewTx(
-							5,
-							nonce,
-							"",
-							config.BlockHeight,
-							scAddress,
-							i.Address,
-							amount,
-							j.TokenLabel,
-							strconv.FormatInt(timestamp, 10),
-							tax,
-							nil,
-							*contracts.NewComment(
-								"refund_transaction",
-								commentSign,
-							),
 						)
 
-						jsonString, _ := json.Marshal(contracts.Tx{
-							Type:       tx.Type,
-							From:       tx.From,
-							To:         tx.To,
-							Amount:     tx.Amount,
-							TokenLabel: tx.TokenLabel,
-							Tax:        tx.Tax,
-							Comment:    tx.Comment,
-						})
-						tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-						jsonString, _ = json.Marshal(tx)
-						tx.HashTx = crypt.GetHash(jsonString)
-
-						if memory.IsNodeProposer() {
-							contracts.SendTx(*tx)
-							*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-						}
+						contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, i.Address, amount, j.TokenLabel, "default_transaction", txCommentSign)
 					}
 				}
 			}
@@ -374,34 +298,7 @@ func ChangeStandard(scAddress string) error {
 
 	if txs != nil && memory.IsNodeProposer() {
 		for _, i := range txs {
-			tx := contracts.NewTx(
-				i.Type,
-				i.Nonce,
-				i.HashTx,
-				i.Height,
-				i.From,
-				i.To,
-				i.Amount,
-				i.TokenLabel,
-				i.Timestamp,
-				i.Tax,
-				i.Signature,
-				i.Comment,
-			)
-
-			jsonString, _ := json.Marshal(contracts.Tx{
-				Type:       tx.Type,
-				From:       tx.From,
-				To:         tx.To,
-				Amount:     tx.Amount,
-				TokenLabel: tx.TokenLabel,
-				Tax:        tx.Tax,
-				Comment:    tx.Comment,
-			})
-			tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-			contracts.SendTx(*tx)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+			contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, i.Comment.Data)
 		}
 	}
 

@@ -9,7 +9,6 @@ import (
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -68,10 +67,6 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 		if i.RecipientAddress == recipientAddress && i.GetBlockHeight <= blockHeight {
 			timestamp := apparel.TimestampUnix()
 
-			txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
-				config.NodeNdAddress,
-			))
-
 			getTxs = append(getTxs, contracts.Tx{
 				Type:       5,
 				Nonce:      apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
@@ -84,7 +79,7 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 				Timestamp:  strconv.FormatInt(timestamp, 10),
 				Tax:        0,
 				Signature:  nil,
-				Comment:    *contracts.NewComment("default_transaction", txCommentSign),
+				Comment:    *contracts.NewComment("default_transaction", nil),
 			})
 
 			getAllAmount += i.Amount
@@ -119,39 +114,11 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 	HolderDB.Put(recipientAddress, string(jsonHolder))
 
 	for _, i := range getTxs {
-		tx := contracts.NewTx(
-			i.Type,
-			i.Nonce,
-			i.HashTx,
-			i.Height,
-			i.From,
-			i.To,
-			i.Amount,
-			i.TokenLabel,
-			i.Timestamp,
-			i.Tax,
-			i.Signature,
-			i.Comment)
+		txCommentSign := contracts.NewBuyTokenSign(
+			config.NodeNdAddress,
+		)
 
-		jsonString, _ := json.Marshal(contracts.Tx{
-			Type:       tx.Type,
-			Nonce:      tx.Nonce,
-			From:       tx.From,
-			To:         tx.To,
-			Amount:     tx.Amount,
-			TokenLabel: tx.TokenLabel,
-			Comment:    tx.Comment,
-		})
-		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-		jsonString, _ = json.Marshal(tx)
-		tx.HashTx = crypt.GetHash(jsonString)
-
-		if memory.IsNodeProposer() {
-			contracts.SendTx(*tx)
-		}
-
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+		contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, txCommentSign)
 	}
 
 	return nil

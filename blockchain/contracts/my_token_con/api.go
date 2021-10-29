@@ -7,7 +7,6 @@ import (
 	"log"
 	"node/blockchain/contracts"
 	"node/crypt"
-	"node/metrics"
 	"node/storage"
 )
 
@@ -45,28 +44,17 @@ func GetAddressPercent(scAddress string, uwAddress string, tokenLabel string, em
 }
 
 func ValidateConfirmation(scAddress string, uwAddress string) int64 {
-	publicKey, err := crypt.PublicKeyFromAddress(uwAddress)
-	if err != nil {
-		return 011
-	}
-
-	if scAddress == crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey) {
-		return 012
-	}
-
 	var scAddressPool []Pool
 	scAddressPoolJson := PoolDB.Get(scAddress).Value
 	if scAddressPoolJson != "" {
-		err := json.Unmarshal([]byte(scAddressPoolJson), &scAddressPool)
-		if err != nil {
-			log.Println("my token contract confirmation validation error", err)
-			return 0
-		}
+		_ = json.Unmarshal([]byte(scAddressPoolJson), &scAddressPool)
 	}
 
-	for _, i := range scAddressPool {
-		if i.Address == uwAddress {
-			return 013
+	if scAddressPool != nil {
+		for _, i := range scAddressPool {
+			if i.Address == uwAddress {
+				return 013
+			}
 		}
 	}
 
@@ -74,15 +62,6 @@ func ValidateConfirmation(scAddress string, uwAddress string) int64 {
 }
 
 func ValidateGetPercent(scAddress string, uwAddress string) int64 {
-	publicKey, err := crypt.PublicKeyFromAddress(uwAddress)
-	if err != nil {
-		return 021
-	}
-
-	if scAddress == crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey) {
-		return 022
-	}
-
 	var scAddressPool []Pool
 	scAddressPoolJson := PoolDB.Get(scAddress).Value
 	if scAddressPoolJson != "" {
@@ -118,7 +97,7 @@ func GetPool(scAddress string) ([]interface{}, error) {
 		}
 	}
 	scAddressToken := contracts.GetTokenInfoForScAddress(scAddress)
-	if scAddressToken.Id == 0 {
+	if scAddressToken == nil {
 		return nil, errors.New("error 2: token does not exist")
 	}
 

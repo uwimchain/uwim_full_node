@@ -13,10 +13,6 @@ import (
 	"sort"
 )
 
-var (
-	a = deep_actions.Address{}
-)
-
 func ValidateBlock(block storage.Block) error {
 	if !memory.IsNodeProposer() {
 		if block.Proposer == "" {
@@ -134,7 +130,13 @@ func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 
 	if transaction.Type == 5 {
 		var sign deep_actions.BuyTokenSign
-		_ = json.Unmarshal(transaction.Comment.Data, &sign)
+		err := json.Unmarshal(transaction.Comment.Data, &sign)
+		if err != nil {
+			return errors.New(fmt.Sprintf("signature verify error %s, error with unmarshaling sc transaction comment title: %v. JSON: %s", transaction.Comment.Title, err, string(transaction.Comment.Data)))
+		}
+		if sign.NodeAddress == "" {
+			return errors.New(fmt.Sprintf("signature verify error %s, incorrect transaction comment sign node nd address is null", transaction.Comment.Title))
+		}
 		publicKey, _ = crypt.PublicKeyFromAddress(sign.NodeAddress)
 	}
 
@@ -153,6 +155,10 @@ func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		Comment:    transaction.Comment,
 	})
 
+	if publicKey == nil {
+		return errors.New(fmt.Sprintf("signature verify error %s, incorrect public key, public key length = %d", transaction.Comment.Title, len(publicKey)))
+	}
+
 	if !crypt.VerifySign(publicKey, jsonString, transaction.Signature) {
 		return errors.New(fmt.Sprintf("signature verify error %s, %v", transaction.Comment.Title, transaction.Signature))
 	}
@@ -161,7 +167,7 @@ func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		return errors.New("transaction block height is empty")
 	}
 
-	NotZeroAmountCommentTitles := []string{
+	ZeroAmountCommentTitles := []string{
 		"undelegate_contract_transaction",
 		"my_token_contract_confirmation_transaction",
 		"trade_token_contract_get_com_transaction",
@@ -178,11 +184,11 @@ func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		"default_contract_buy_transaction",
 	}
 
-	if CheckInStringArray(NotZeroAmountCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
+	if !CheckInStringArray(ZeroAmountCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
 		return errors.New("zero or negative amount")
 	}
 
-	if transaction.TokenLabel != config.BaseToken && !storage.CheckToken(transaction.TokenLabel) {
+	if transaction.TokenLabel != config.BaseToken && !deep_actions.CheckToken(transaction.TokenLabel) {
 		return errors.New(fmt.Sprintf("token \"%s\" does not exist", transaction.TokenLabel))
 	}
 

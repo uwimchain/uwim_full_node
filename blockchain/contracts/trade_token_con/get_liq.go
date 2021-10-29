@@ -7,8 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -52,6 +50,7 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	}
 
 	timestamp := apparel.TimestampUnix()
+	timestampD := strconv.FormatInt(timestamp, 10)
 
 	check := -1
 	for idx, i := range scAddressHolders {
@@ -118,11 +117,12 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	PoolDB.Put(scAddress, string(jsonScAddressPool))
 	HolderDB.Put(scAddress, string(jsonScAddressHolders))
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign := contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
+	)
 
-	if memory.IsNodeProposer() {
+	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, tokenLabel, "default_transaction", txCommentSign)
+	/*if memory.IsNodeProposer() {
 		tx := contracts.NewTx(
 			5,
 			apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
@@ -154,7 +154,7 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 
 		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	}*/
 
 	return nil
 }

@@ -230,7 +230,7 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 	jsonString, err := json.Marshal(BalanceInfo{
 		Address:      args.Address,
 		Balance:      address.Balance,
-		Transactions: storage.GetTransactions(args.Address),
+		Transactions: address.GetTxs(),
 		Token:        *token,
 		ScKeeping:    address.ScKeeping,
 		Name:         address.Name,

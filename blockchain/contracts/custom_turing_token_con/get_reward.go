@@ -7,8 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -50,37 +48,9 @@ func getReward(txHash string, blockHeight int64) error {
 
 	amount := ((24 * 60 * 60 * 60) * float64(lastGetRewardBlockHeight)) * 0.1
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign := contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
-
-	tx := contracts.NewTx(
-		5,
-		apparel.GetNonce(timestampD),
-		"",
-		blockHeight,
-		ScAddress,
-		UwAddress,
-		amount,
-		TokenLabel,
-		timestampD,
-		0,
-		nil,
-		*contracts.NewComment("default_transaction", txCommentSign))
-
-	jsonString, _ := json.Marshal(contracts.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
+	)
 
 	scAddressConfigData["last_get_reward_block_height"] = blockHeight
 
@@ -93,9 +63,6 @@ func getReward(txHash string, blockHeight int64) error {
 		return err
 	}
 
-	if memory.IsNodeProposer() {
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	contracts.SendNewScTx(timestampD, config.BlockHeight, ScAddress, UwAddress, amount, TokenLabel, "default_transaction", txCommentSign)
 	return nil
 }

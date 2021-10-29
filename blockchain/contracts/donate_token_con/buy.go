@@ -9,7 +9,6 @@ import (
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -43,6 +42,7 @@ func Buy(args *BuyArgs) error {
 
 func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockHeight int64) error {
 	timestamp := apparel.TimestampUnix()
+	timestampD := strconv.FormatInt(timestamp, 10)
 
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return errors.New("error 1: invalid smart-contract address")
@@ -92,51 +92,15 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New("error 10: smart-contract balance for token uwm")
 	}
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign:=contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
-
-	tx := contracts.NewTx(
-		5,
-		apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-		"",
-		config.BlockHeight,
-		scAddress,
-		uwAddress,
-		txAmount,
-		scAddressToken.Label,
-		strconv.FormatInt(timestamp, 10),
-		txTax,
-		nil,
-		*contracts.NewComment(
-			"default_transaction",
-			txCommentSign,
-		),
 	)
-
-	jsonString, _ := json.Marshal(contracts.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
 
 	err = contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash, uwAddress, nil), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 12: %v", err))
 	}
 
-	if memory.IsNodeProposer() {
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
-
+	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction", txCommentSign)
 	return nil
 }

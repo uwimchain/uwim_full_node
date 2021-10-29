@@ -2,16 +2,18 @@ package validation
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts/custom_turing_token_con"
 	"node/config"
-	"node/storage"
 	"node/storage/deep_actions"
 	"strings"
 )
 
 func validateTransactionType3(t deep_actions.Tx) error {
+	txCommentData := make(map[string]interface{})
+	_ = json.Unmarshal(t.Comment.Data, &txCommentData)
 
 	switch t.Comment.Title {
 	case "create_token_transaction":
@@ -82,81 +84,71 @@ func validateTransactionType3(t deep_actions.Tx) error {
 		}
 		break
 	case "rename_token_transaction":
-		token := deep_actions.Token{}
-		err := json.Unmarshal(t.Comment.Data, &token)
-		if err != nil {
-			return errors.New("rename token data error")
+		//token := deep_actions.Token{}
+		//err := json.Unmarshal(t.Comment.Data, &token)
+		//if err != nil {
+		//	return errors.New("rename token data error")
+		//}
+		address := deep_actions.GetAddress(t.From)
+		if address.TokenLabel == "" {
+			return errors.New(fmt.Sprintf("address \"%s\" don`t have a token", address.Address))
 		}
 
-		if token.Label == "" {
-			return errors.New("token label is empty")
+		token := address.GetToken()
+		if token.Id == 0 {
+			return errors.New(fmt.Sprintf("token \"%s\" does not exist", address.TokenLabel))
 		}
 
 		if token.Label == config.BaseToken {
 			return errors.New("token label is \"uwm\"")
 		}
 
-		if token.Name == "" {
+		newName := apparel.ConvertInterfaceToString(txCommentData["new_name"])
+
+		if newName == "" {
 			return errors.New("token name is empty")
 		}
 
-		if int64(len(token.Name)) > config.MaxName {
+		if int64(len(newName)) > config.MaxName {
 			return errors.New("token name is greater than maximum")
-		}
-
-		if !deep_actions.CheckToken(token.Label) {
-			return errors.New("this token does not exist`s")
-		}
-
-		address := deep_actions.GetAddress(t.From)
-
-		if !address.CheckAddressToken() {
-			return errors.New("this user haven`t token")
 		}
 
 		break
 	case "change_token_standard_transaction":
-		token := deep_actions.Token{}
-		err := json.Unmarshal(t.Comment.Data, &token)
-		if err != nil {
-			return errors.New("change token standard data error")
-		}
+		address := deep_actions.GetAddress(t.From)
 
-		if !apparel.SearchInArray([]int64{0, 1, 3, 4, 5}, token.Standard) {
-			return errors.New("invalid token standard 1")
-		}
-
-		row := storage.GetTokenJson(token.Label)
-		if row == "" {
-			return errors.New("invalid token standard 2")
-		}
-
-		err = json.Unmarshal([]byte(row), &token)
-		if err != nil {
-			return errors.New("invalid token standard 3")
-		}
-
-		if !storage.CheckToken(token.Label) {
+		if address.TokenLabel == "" {
 			return errors.New("invalid token standard 4")
 		}
 
-		if token.Standard == token.Standard {
+		standard := apparel.ConvertInterfaceToInt64(txCommentData["standard"])
+
+		if !apparel.SearchInArray([]int64{0, 1, 3, 4, 5}, standard) {
+			return errors.New("invalid token standard 1")
+		}
+
+		token := address.GetToken()
+		if token.Id == 0 {
+			return errors.New("invalid token standard 2")
+		}
+
+		if token.Standard == standard {
 			return errors.New("invalid token standard 5")
 		}
 
-		if token.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, token.Standard) {
+		if token.Standard == 0 && !apparel.SearchInArray([]int64{1, 3, 4, 5}, standard) {
 			return errors.New("invalid token standard 6")
 		}
 
-		if token.Standard == 1 && !apparel.SearchInArray([]int64{3, 4, 5}, token.Standard) {
+		if token.Standard == 1 && !apparel.SearchInArray([]int64{3, 4, 5}, standard) {
 			return errors.New("invalid token standard 7")
 		}
 
-		if token.Standard == 3 && !apparel.SearchInArray([]int64{4, 5}, token.Standard) {
+		if token.Standard == 3 && !apparel.SearchInArray([]int64{4, 5}, standard) {
 			return errors.New("invalid token standard 8")
 		}
 
-		if token.Standard == 4 {
+		if token.Standard == 4 && standard != 5 {
 			return errors.New("invalid token standard 9")
 		}
 
@@ -182,10 +174,18 @@ func validateTransactionType3(t deep_actions.Tx) error {
 		break
 	case "fill_token_standard_card_transaction":
 		address := deep_actions.GetAddress(t.From)
-		token := deep_actions.GetToken(address.TokenLabel)
+		if address.TokenLabel == "" {
+			return errors.New(fmt.Sprintf("Address \"%s\" don`t have a token", address.Address))
+		}
+
+		token := address.GetToken()
+		if token.Id == 0 {
+			return errors.New(fmt.Sprintf("Token \"%s\" does not exist", address.TokenLabel))
+		}
+
 		switch token.Standard {
-		case 2:
-			if check := validate2standard(string(t.Comment.Data)); check != nil {
+		case 1:
+			if check := validate1standard(string(t.Comment.Data)); check != nil {
 				return check
 			}
 			break
@@ -213,7 +213,7 @@ func validateTransactionType3(t deep_actions.Tx) error {
 	return nil
 }
 
-func validate2standard(data string) error {
+func validate1standard(data string) error {
 	tokenStandardCard := deep_actions.DonateStandardCardData{}
 	err := json.Unmarshal([]byte(data), &tokenStandardCard)
 	if err != nil {

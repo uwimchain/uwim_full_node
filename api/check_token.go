@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
-	"node/storage"
+	"node/storage/deep_actions"
 	"strconv"
 )
 
@@ -18,7 +18,7 @@ func (api *Api) CheckToken(args *CheckTokenArgs, result *string) error {
 		return errors.New(strconv.Itoa(0))
 	}
 
-	if storage.CheckToken(args.Label) {
+	if deep_actions.CheckToken(args.Label) {
 		*result = strconv.Itoa(1)
 		return nil
 	}

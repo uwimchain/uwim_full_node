@@ -7,8 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -152,10 +150,13 @@ func changeStandard(scAddress string) error {
 		}
 	}
 
-	if txs != nil && memory.IsNodeProposer() {
-		for _, j := range txs {
-
-			tx := contracts.NewTx(
+	//if txs != nil && memory.IsNodeProposer() {
+	if txs == nil {
+		return nil
+	}
+		for _, i := range txs {
+			contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, i.Comment.Data)
+			/*tx := contracts.NewTx(
 				j.Type,
 				j.Nonce,
 				"",
@@ -185,9 +186,9 @@ func changeStandard(scAddress string) error {
 			tx.HashTx = crypt.GetHash(jsonString)
 
 			contracts.SendTx(*tx)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)*/
 		}
-	}
+	//}
 
 	return nil
 }

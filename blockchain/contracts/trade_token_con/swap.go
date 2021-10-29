@@ -8,8 +8,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -81,6 +79,7 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 	}
 
 	timestamp := apparel.TimestampUnix()
+	timestampD := strconv.FormatInt(timestamp, 10)
 
 	var (
 		txAmount float64 = 0
@@ -89,15 +88,20 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 	)
 
 	if scAddressPool.SecondToken.Amount > 0 && scAddressPool.FirstToken.Amount > 0 {
-		course = scAddressPool.FirstToken.Amount / scAddressPool.SecondToken.Amount
+		if scAddressPool.FirstToken.Amount > scAddressPool.SecondToken.Amount {
+			course = scAddressPool.SecondToken.Amount / scAddressPool.FirstToken.Amount
+		} else {
+			course = scAddressPool.FirstToken.Amount / scAddressPool.SecondToken.Amount
+		}
 	}
 
 	txTokenLabel := ""
 	switch tokenLabel {
 	case config.BaseToken:
 		txTokenLabel = token.Label
-
-		txAmount = amount * course
+		txAmount = apparel.Round(amount * course)
+		//log.Println(fmt.Sprintf("cource amount if you send uwm for swap: %g", course))
+		//log.Println(fmt.Sprintf("tx amount if you send uwm for swap: %g %s", txAmount, txTokenLabel))
 		tax = txAmount * (scAddressConfigData.Commission / 100)
 
 		scAddressPool.FirstToken.Amount += amount
@@ -105,19 +109,20 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 
 		scAddressPool.SecondToken.Amount -= txAmount
 		if scAddressPool.SecondToken.Amount < 1 {
-			return errors.New(fmt.Sprintf("error 8: low balance for token %s %g %g %g", txTokenLabel, txAmount, amount, course))
+			return errors.New(fmt.Sprintf("error 8: low balance for token %s,  txAmount: %g,  amount: %g,  cource: %g",
+				txTokenLabel, txAmount, amount, course))
 		}
 		scAddressPool.SecondToken.UpdateTime = timestamp
 		break
 	case token.Label:
 		txTokenLabel = config.BaseToken
-
-		txAmount = amount / course
+		txAmount = apparel.Round(amount / course)
 		tax = txAmount * (scAddressConfigData.Commission / 100)
 
 		scAddressPool.FirstToken.Amount -= txAmount
 		if scAddressPool.FirstToken.Amount < 1 {
-			return errors.New(fmt.Sprintf("error 9: low balance for token %s %g %g %g", txTokenLabel, txAmount, amount, course))
+			return errors.New(fmt.Sprintf("error 9: low balance for token %s,  txAmount: %g,  amount: %g,  cource: %g",
+				txTokenLabel, txAmount, amount, course))
 		}
 		scAddressPool.FirstToken.UpdateTime = timestamp
 
@@ -126,7 +131,6 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 		break
 	}
 	if tax != 0 && scAddressHolders != nil {
-		log.Println("swap 1")
 		var holdersReward float64 = 0
 		for _, i := range scAddressHolders {
 			if i.Pool.Liq.Amount == 0 {
@@ -139,7 +143,6 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 		}
 
 		if holdersReward <= tax {
-			log.Println("swap 2: holders reward ", holdersReward)
 			for idx, i := range scAddressHolders {
 				if i.Pool.Liq.Amount == 0 {
 					continue
@@ -184,43 +187,11 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 	ConfigDB.Put(scAddress, string(jsonScAddressConfig))
 	HolderDB.Put(scAddress, string(jsonScAddressHolders))
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign := contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
+	)
 
-	if memory.IsNodeProposer() {
-		tx := contracts.NewTx(
-			5,
-			apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-			"",
-			config.BlockHeight,
-			scAddress,
-			uwAddress,
-			txAmount-tax,
-			txTokenLabel,
-			strconv.FormatInt(timestamp, 10),
-			0,
-			nil,
-			*contracts.NewComment("default_transaction", txCommentSign),
-		)
-
-		jsonString, _ := json.Marshal(contracts.Tx{
-			Type:       tx.Type,
-			Nonce:      tx.Nonce,
-			From:       tx.From,
-			To:         tx.To,
-			Amount:     tx.Amount,
-			TokenLabel: tx.TokenLabel,
-			Comment:    tx.Comment,
-		})
-		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-		jsonString, _ = json.Marshal(tx)
-		tx.HashTx = crypt.GetHash(jsonString)
-
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount-tax, txTokenLabel, "default_transaction", txCommentSign)
 
 	return nil
 }

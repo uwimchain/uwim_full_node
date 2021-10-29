@@ -270,7 +270,7 @@ func downloadBlocks(body string) {
 
 				for i := minHeight; i < maxHeight; i++ {
 					c := deep_actions.Chain{}
-					err := json.Unmarshal([]byte(storage.GetBLockForHeight(i)), &c)
+					err := json.Unmarshal([]byte(deep_actions.GetChainJson(i)), &c)
 					if err != nil {
 						log.Println("Websocket server reader download blocks error 2:", err)
 					} else {
@@ -314,13 +314,18 @@ func downloadBlocks(body string) {
 								case "delegate_contract_transaction":
 									{
 										if t.To == config.DelegateScAddress {
-											timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
-											err := delegate_con.Delegate(t.From, t.Amount, timestamp)
+											delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
 											if err != nil {
 												log.Println("Deep actions download new tx delegate contract transaction error 1:", err)
+												break
+											}
+											err = delegate_con.Delegate(delegateArgs)
+											if err != nil {
+												log.Println("Deep actions download new tx delegate contract transaction error 2:", err)
+												break
 											}
 										} else {
-											log.Println("Deep actions download new tx delegate contract transaction error 2")
+											log.Println("Deep actions download new tx delegate contract transaction error 3")
 										}
 										break
 									}
@@ -340,20 +345,18 @@ func downloadBlocks(body string) {
 										break
 									}
 								case "my_token_contract_get_percent_transaction":
-									{
-										getPercentAgs, err := my_token_con.NewGetPercentArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx)
-										if err != nil {
-											log.Println("Deep actions new tx my contract get percent transaction error 1:", err)
-											break
-										}
-
-										err = my_token_con.GetPercent(getPercentAgs)
-										if err != nil {
-											log.Println("Deep actions new tx my contract get percent transaction error 2:", err)
-										}
-
+									getPercentAgs, err := my_token_con.NewGetPercentArgs(t.To, t.From, t.TokenLabel, t.Amount, t.Height, t.HashTx)
+									if err != nil {
+										log.Println("Deep actions new tx my contract get percent transaction error 1:", err)
 										break
 									}
+
+									err = my_token_con.GetPercent(getPercentAgs)
+									if err != nil {
+										log.Println("Deep actions new tx my contract get percent transaction error 2:", err)
+									}
+
+									break
 								case "trade_token_contract_add_transaction":
 									{
 										err := trade_token_con.Add(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
@@ -569,18 +572,29 @@ func downloadBlocks(body string) {
 							{
 								switch t.Comment.Title {
 								case "undelegate_contract_transaction":
-									{
-										if t.From == config.DelegateScAddress {
-											timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
-											err := delegate_con.UnDelegate(t.To, t.Amount, timestamp)
-											if err != nil {
-												log.Println("Deep actions download new tx undelegate contract transaction error 1:", err)
-											}
-										} else {
-											log.Println("Deep actions download new tx undelegate contract transaction error 2")
-										}
+
+									if t.From != config.DelegateScAddress {
+										log.Println("Deep actions new tx delegate contract undelegate transaction error 1")
+									}
+
+									commentData := make(map[string]interface{})
+									err := json.Unmarshal(t.Comment.Data, &commentData)
+									if err != nil {
+										log.Println("Deep actions new tx delegate contract undelegate transaction error 2:", err)
 										break
 									}
+
+									delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
+									if err != nil {
+										log.Println("Deep actions new tx delegate contract undelegate transaction error 3:", err)
+										break
+									}
+
+									err = delegate_con.UnDelegate(delegateArgs)
+									if err != nil {
+										log.Println("Deep actions new tx delegate contract undelegate transaction error 4:", err)
+									}
+									break
 								}
 								break
 							}

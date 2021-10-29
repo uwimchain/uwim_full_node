@@ -7,8 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -53,7 +51,7 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	}
 
 	timestamp := apparel.TimestampUnix()
-	//timestampD := strconv.FormatInt(timestamp, 10)
+	timestampD := strconv.FormatInt(timestamp, 10)
 
 	check := -1
 	var txAmount float64 = 0
@@ -112,7 +110,8 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 		config.NodeNdAddress,
 	))
 
-	if memory.IsNodeProposer() {
+	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, tokenLabel, "default_transaction", txCommentSign)
+	/*if memory.IsNodeProposer() {
 		tx := contracts.NewTx(
 			5,
 			apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
@@ -144,7 +143,7 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 
 		contracts.SendTx(*tx)
 		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	}*/
 
 	return nil
 }

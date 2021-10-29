@@ -36,7 +36,13 @@ func (api *Api) Explorer(args *ExplorerArgs, result *string) error {
 	explorer := make(map[string]interface{})
 	explorer["blocks"] = explorerBlocks(args.BlocksStart, args.BlocksLimit, args.BlocksLast)
 	explorer["tokens"], _ = explorerTokens(args.TokensStart, args.TokensLimit)
-	explorer["transactions"] = storage.TransactionsMemory
+	transactions := storage.TransactionsMemory
+	sort.Slice(transactions, func(i, j int) bool {
+		timestamp1, _ := strconv.ParseInt(transactions[i].Timestamp, 10, 64)
+		timestamp2, _ := strconv.ParseInt(transactions[j].Timestamp, 10, 64)
+		return timestamp1 < timestamp2
+	})
+	explorer["transactions"] = 	transactions
 
 	explorerJson, err := json.Marshal(explorer)
 	if err != nil {

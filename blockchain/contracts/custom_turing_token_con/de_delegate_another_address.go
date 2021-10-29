@@ -7,8 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
-	"node/memory"
 	"strconv"
 )
 
@@ -69,37 +67,9 @@ func deDelegateAnotherAddress(senderAddress, recipientAddress, txHash string, am
 	sender.Amount -= amount
 	sender.UpdateTime = timestampD
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign:=contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
-
-	tx := contracts.NewTx(
-		5,
-		apparel.GetNonce(timestampD),
-		"",
-		blockHeight,
-		ScAddress,
-		UwAddress,
-		amount2,
-		TokenLabel,
-		timestampD,
-		0,
-		nil,
-		*contracts.NewComment("default_transaction", txCommentSign))
-
-	jsonString, _ := json.Marshal(contracts.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
+	)
 
 	err := contracts.AddEvent(ScAddress, *contracts.NewEvent("De-delegate another address", timestamp, blockHeight, txHash, senderAddress, ""), EventDB, ConfigDB)
 	if err != nil {
@@ -112,9 +82,6 @@ func deDelegateAnotherAddress(senderAddress, recipientAddress, txHash string, am
 	jsonRecipient, _ := json.Marshal(recipient)
 	HolderDB.Put(recipientAddress, string(jsonRecipient))
 
-	if memory.IsNodeProposer() {
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	contracts.SendNewScTx(timestampD, config.BlockHeight, ScAddress, UwAddress, amount, TokenLabel, "default_transaction", txCommentSign)
 	return nil
 }

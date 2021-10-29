@@ -57,16 +57,26 @@ func validateBalance(address string, amount float64, tokenLabel string, taxNull 
 		tax = apparel.CalcTax(amount)
 	}
 
-	for _, i := range balance {
-		if i.TokenLabel == tokenLabel {
-			if i.Amount < amount {
-				return 6
+	if tokenLabel != config.BaseToken {
+		for _, i := range balance {
+			if i.TokenLabel == tokenLabel {
+				if i.Amount < amount {
+					return 6
+				}
+			}
+
+			if i.TokenLabel == config.BaseToken {
+				if i.Amount < tax {
+					return 6
+				}
 			}
 		}
-
-		if i.TokenLabel == config.BaseToken {
-			if i.Amount < tax {
-				return 6
+	} else {
+		for _, i := range balance {
+			if i.TokenLabel == config.BaseToken {
+				if i.Amount < amount+tax {
+					return 6
+				}
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"node/storage"
+	"node/storage/deep_actions"
 )
 
 // FindBlock method arguments
@@ -10,7 +10,7 @@ type FindBlockArgs struct {
 }
 
 func (api *Api) FindBlock(args *FindBlockArgs, result *string) error {
-	jsonString := storage.GetBLockForHeight(args.Height)
-	*result = jsonString
+	chainJson := deep_actions.GetChainJson(args.Height)
+	*result = chainJson
 	return nil
 }

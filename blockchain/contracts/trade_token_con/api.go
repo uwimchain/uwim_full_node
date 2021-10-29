@@ -364,14 +364,23 @@ func ValidateSwap(args *TradeArgs) int64 {
 		}
 	}
 
+	var course float64 = 0
+	if scAddressPool.FirstToken.Amount > scAddressPool.SecondToken.Amount {
+		course = scAddressPool.SecondToken.Amount / scAddressPool.FirstToken.Amount
+	} else {
+		course = scAddressPool.FirstToken.Amount / scAddressPool.SecondToken.Amount
+	}
+
+	txAmount := apparel.Round(args.Amount * course)
+
 	switch args.TokenLabel {
 	case config.BaseToken:
-		if scAddressPool.FirstToken.Amount-args.Amount < 1 {
+		if scAddressPool.FirstToken.Amount-txAmount < 1 {
 			return 528
 		}
 		break
 	case token.Label:
-		if scAddressPool.SecondToken.Amount-args.Amount < 1 {
+		if scAddressPool.SecondToken.Amount-txAmount < 1 {
 			return 529
 		}
 		break

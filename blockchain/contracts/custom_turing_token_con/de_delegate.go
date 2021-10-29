@@ -7,7 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
 	"node/memory"
 	"strconv"
 )
@@ -54,10 +53,6 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 
 	var txs []contracts.Tx
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	))
-
 	if uwAddress == UwAddress {
 		txs = append(txs, contracts.Tx{
 			Type:       5,
@@ -73,7 +68,7 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 			Signature:  nil,
 			Comment: *contracts.NewComment(
 				"default_transaction",
-				txCommentSign,
+				nil,
 			),
 		})
 	} else {
@@ -95,7 +90,7 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 			Signature:  nil,
 			Comment: *contracts.NewComment(
 				"default_transaction",
-				txCommentSign,
+				nil,
 			),
 		}, contracts.Tx{
 			Type:       5,
@@ -111,7 +106,7 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 			Signature:  nil,
 			Comment: *contracts.NewComment(
 				"default_transaction",
-				txCommentSign,
+				nil,
 			),
 		})
 	}
@@ -120,7 +115,7 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 		return errors.New("De-delegate error 2: empty transactions list")
 	}
 
-	for i := range txs {
+	/*for i := range txs {
 		jsonString, _ := json.Marshal(contracts.Tx{
 			Type:       txs[i].Type,
 			Nonce:      txs[i].Nonce,
@@ -134,7 +129,7 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 
 		jsonString, _ = json.Marshal(txs[i])
 		txs[i].HashTx = crypt.GetHash(jsonString)
-	}
+	}*/
 
 	err := contracts.AddEvent(ScAddress, *contracts.NewEvent("De-delegate", timestamp, blockHeight, txHash, uwAddress, ""), EventDB, ConfigDB)
 	if err != nil {
@@ -149,21 +144,10 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 
 	if memory.IsNodeProposer() {
 		for _, i := range txs {
-			tx := *contracts.NewTx(
-				i.Type,
-				i.Nonce,
-				i.HashTx,
-				i.Height,
-				i.From,
-				i.To,
-				i.Amount,
-				i.TokenLabel,
-				i.Timestamp,
-				i.Tax,
-				i.Signature,
-				i.Comment)
-			contracts.SendTx(tx)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, tx)
+			txCommentSign:=contracts.NewBuyTokenSign(
+				config.NodeNdAddress,
+			)
+			contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, txCommentSign)
 		}
 	}
 

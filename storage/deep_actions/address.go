@@ -6,6 +6,7 @@ import (
 	"node/apparel"
 	"node/crypt"
 	"node/storage/leveldb"
+	"sort"
 	"strconv"
 )
 
@@ -31,17 +32,6 @@ func NewBalance(tokenLabel string, amount float64, updateTime string) *Balance {
 }
 
 func NewAddress(address string, balance []Balance, publicKey []byte, firstTxTime string, lastTxTime string) *Address {
-	/*jsonString, _ := json.Marshal(Address{
-		Address:     address,
-		Balance:     balance,
-		PublicKey:   publicKey,
-		FirstTxTime: firstTxTime,
-		LastTxTime:  lastTxTime,
-		TokenLabel:  "",
-		ScKeeping:   false,
-		Name:        "",
-	})*/
-
 	return &Address{
 		Address:     address,
 		Balance:     balance,
@@ -53,7 +43,6 @@ func NewAddress(address string, balance []Balance, publicKey []byte, firstTxTime
 		Name:        "",
 	}
 
-	//leveldb.AddressDB.Put(address, string(jsonString))
 }
 
 func (a *Address) Create() {
@@ -63,14 +52,10 @@ func (a *Address) Create() {
 }
 
 func GetAddress(addressString string) *Address {
-	address := Address{}
+	address := new(Address)
 	addressJson := leveldb.AddressDB.Get(addressString).Value
-	//if addressJson == "" {
-	//	return nil
-	//}
-	_ = json.Unmarshal([]byte(addressJson), &address)
-
-	return &address
+	_ = json.Unmarshal([]byte(addressJson), address)
+	return address
 }
 
 func (a *Address) Update() {
@@ -154,8 +139,44 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 	return balance
 }
 
+func (a *Address) GetTxs() []Tx {
+	if a.Address == "" {
+		return nil
+	}
+	txsJson := leveldb.TxDB.Get(a.Address).Value
+	var txs []Tx
+
+	if txsJson == "" {
+		return nil
+	}
+
+	_ = json.Unmarshal([]byte(txsJson), &txs)
+
+	if txs == nil {
+		return nil
+	}
+
+	sort.Slice(txs, func(i, j int) bool {
+		timestamp1, _ := strconv.ParseInt(txs[i].Timestamp, 10, 64)
+		timestamp2, _ := strconv.ParseInt(txs[j].Timestamp, 10, 64)
+		return timestamp1 > timestamp2
+	})
+
+	if len(txs) > 30 {
+		return txs[len(txs)-30:]
+	} else {
+		return txs
+	}
+}
+
+func (a *Address) AppendTx(tx Tx) {
+	txs := append(a.GetTxs(), tx)
+	jsonString, _ := json.Marshal(txs)
+	leveldb.TxDB.Put(a.Address, string(jsonString))
+}
+
 func (a *Address) UpdateBalanceTest(amount float64, label string, side bool) {
-	if a == nil {
+	if a.Address == "" {
 		return
 	}
 

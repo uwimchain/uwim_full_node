@@ -23,7 +23,6 @@ type TokenCardHistory struct {
 
 func (api *Api) FindToken(args *FindTokenArgs, result *string) error {
 	token := deep_actions.GetToken(args.Label)
-
 	var tokenCardHistory []TokenCardHistory
 
 	if token.CardHistory != nil {
@@ -50,8 +49,9 @@ func (api *Api) FindToken(args *FindTokenArgs, result *string) error {
 			tokenScAddress = crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
 		}
 
+		scAddress := deep_actions.GetAddress(tokenScAddress)
 		tokenScBalance = storage.GetBalance(tokenScAddress)
-		tokenScTransactions = storage.GetTransactions(tokenScAddress)
+		tokenScTransactions = scAddress.GetTxs()
 
 		switch token.Standard {
 		case 0:

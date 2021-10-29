@@ -8,7 +8,6 @@ import (
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
-	"node/memory"
 	"node/storage"
 	"strconv"
 )
@@ -95,6 +94,8 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 	}
 
 	timestamp := apparel.TimestampUnix()
+	timestampD := strconv.FormatInt(timestamp, 10)
+
 	partnerExist := false
 	for idx, i := range scAddressPartners {
 		if i.Address == uwAddress {
@@ -148,41 +149,9 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 		}
 	}
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+	txCommentSign := contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
-	))
-
-	tx := contracts.NewTx(
-		5,
-		apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-		"",
-		config.BlockHeight,
-		scAddress,
-		uwAddress,
-		amount,
-		tokenLabel,
-		strconv.FormatInt(timestamp, 10),
-		txTax,
-		nil,
-		*contracts.NewComment(
-			"default_transaction",
-			txCommentSign,
-		),
 	)
-
-	jsonString, _ := json.Marshal(contracts.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
 
 	err := contracts.AddEvent(scAddress, *contracts.NewEvent("Get percent", timestamp, blockHeight, txHash, uwAddress, newEventGetPercentTypeData(amount, tokenLabel)), EventDB, ConfigDB)
 	if err != nil {
@@ -195,10 +164,7 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 	}
 	ContractsDB.Put(scAddress, string(jsonScAddressPartners))
 
-	if memory.IsNodeProposer() {
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}
+	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, amount, tokenLabel, "default_transaction", txCommentSign)
 
 	return nil
 }

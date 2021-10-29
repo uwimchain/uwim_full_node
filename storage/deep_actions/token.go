@@ -10,9 +10,7 @@ import (
 	"strconv"
 )
 
-var (
-	A Address
-)
+type String string
 
 type Token struct {
 	Id int64 `json:"tokenId"`
@@ -25,7 +23,7 @@ type Token struct {
 	Proposer  string  `json:"proposer"`
 	Signature []byte  `json:"signature"`
 	Emission  float64 `json:"emission"`
-	Timestamp string  `json:"timestamp"`
+	Timestamp String  `json:"timestamp"`
 	// 0 - My
 	// 1 - Donate
 	// 3 - StartUp
@@ -50,7 +48,7 @@ type History struct {
 type PersonalTokenCard struct {
 	FullName   string      `json:"full_name"`
 	BirthDay   string      `json:"birth_day"`
-	Gender     string      `json:"gender"`
+	Gender     String      `json:"gender"`
 	Country    string      `json:"country"`
 	Region     string      `json:"region"`
 	City       string      `json:"city"`
@@ -186,7 +184,7 @@ func NewToken(tType int64, label string, name string, proposer string,
 		Proposer:  proposer,
 		Signature: signature,
 		Emission:  emission,
-		Timestamp: timestamp,
+		Timestamp: String(timestamp),
 		Standard:  standard,
 	}
 }
@@ -227,30 +225,12 @@ func (t *Token) Update() {
 	leveldb.TokenDb.Put(t.Label, string(jsonString))
 }
 
-//func (t *Token) RenameToken(label string, newName string) {
 func (t *Token) RenameToken(newName string) {
-	//row := t.GetTokenJson(label)
-	//if row == "" {
-	//	log.Println("Deep actions rename token error 1: token with this label does not exists in database")
-	//	return
-	//}
-
-	//_ = json.Unmarshal([]byte(row), &t)
 	t.Name = newName
-	//jsonString, _ := json.Marshal(t)
-	//leveldb.TokenDb.Put(label, string(jsonString))
 	t.Update()
 }
 
-//func (t *Token) ChangeTokenStandard(label string, newStandard int64, timestamp string, txHash string) {
 func (t *Token) ChangeTokenStandard(newStandard int64, timestamp string, txHash string) {
-	//row := t.GetTokenJson(label)
-	//if row == "" {
-	//	log.Println("Deep actions change token standard error 1: token with this label does not exists in database")
-	//	return
-	//}
-
-	//_ = json.Unmarshal([]byte(row), &t)
 	t.Standard = newStandard
 	if t.StandardHistory != nil {
 		t.StandardHistory = append(t.StandardHistory, History{
@@ -266,8 +246,6 @@ func (t *Token) ChangeTokenStandard(newStandard int64, timestamp string, txHash 
 		})
 	}
 
-	//jsonString, _ := json.Marshal(t)
-	//leveldb.TokenDb.Put(label, string(jsonString))
 	t.Update()
 }
 
@@ -278,23 +256,11 @@ func (t *Token) AddTokenEmission(addEmissionAmount float64) {
 
 	t.Emission += addEmissionAmount
 
-	//jsonString, _ := json.Marshal(t)
-
-	//leveldb.TokenDb.Put(t.Label, string(jsonString))
-
 	t.Update()
 }
 
-//func (t *Token) FillTokenCard(label string, newCardData []byte, timestamp string, txHash string) {
 func (t *Token) FillTokenCard(newCardData []byte, timestamp string, txHash string) {
-	//row := t.GetTokenJson(label)
-	//if row == "" {
-	//	log.Println("Deep actions fill token card error 1: token with this label does not exists in database")
-	//	return
-	//}
-
-	//_ = json.Unmarshal([]byte(row), &t)
-
+	//log.Println(string(newCardData))
 	t.Card = string(newCardData)
 	if t.CardHistory != nil {
 		t.CardHistory = append(t.CardHistory, History{
@@ -310,22 +276,10 @@ func (t *Token) FillTokenCard(newCardData []byte, timestamp string, txHash strin
 		})
 	}
 
-	//jsonString, _ := json.Marshal(t)
-	//leveldb.TokenDb.Put(label, string(jsonString))
-
 	t.Update()
 }
 
-//func (t *Token) FillTokenStandardCard(label string, newStandardCardData []byte, timestamp string, txHash string) {
 func (t *Token) FillTokenStandardCard(newStandardCardData []byte, timestamp string, txHash string) {
-	//row := t.GetTokenJson(label)
-	//if row == "" {
-	//	log.Println("Deep actions fill token standard card error 1: token with this label does not exists in database")
-	//	return
-	//}
-
-	//_ = json.Unmarshal([]byte(row), &t)
-
 	t.StandardCard = string(newStandardCardData)
 	if t.StandardCardHistory != nil {
 		t.StandardCardHistory = append(t.StandardCardHistory, History{
@@ -341,8 +295,6 @@ func (t *Token) FillTokenStandardCard(newStandardCardData []byte, timestamp stri
 		})
 	}
 
-	//jsonString, _ := json.Marshal(t)
-	//leveldb.TokenDb.Put(label, string(jsonString))
 	t.Update()
 }
 
@@ -353,16 +305,31 @@ func (t *Token) GetStandardCard() map[string]interface{} {
 	return standardCardData
 }
 
-func (t *Token) GetTokenJson(tokenLabel string) string {
-	return leveldb.TokenDb.Get(tokenLabel).Value
-}
-
 func GetToken(label string) *Token {
 	tokenJson := leveldb.TokenDb.Get(label).Value
 	token := new(Token)
 	_ = json.Unmarshal([]byte(tokenJson), token)
 
 	return token
+}
+
+func (s *String) UnmarshalJSON(b []byte) error {
+	var item interface{}
+	if err := json.Unmarshal(b, &item); err != nil {
+		return err
+	}
+
+	switch v := item.(type) {
+	case int64:
+		*s = String(strconv.FormatInt(v, 10))
+		break
+	case float64:
+		*s = String(strconv.Itoa(int(v)))
+		break
+	case string:
+		*s = String(v)
+	}
+	return nil
 }
 
 func CheckToken(tokenLabel string) bool {
@@ -376,14 +343,11 @@ func GetAllTokens() []Token {
 
 	if rows != nil {
 		for _, row := range rows {
-			token := Token{}
+			token := new(Token)
 
-			err := json.Unmarshal([]byte(row.Value), &token)
-			if err != nil {
-				log.Println("Get Tokens error: ", err)
-			}
+			_ = json.Unmarshal([]byte(row.Value), token)
 
-			tokens = append(tokens, token)
+			tokens = append(tokens, *token)
 		}
 	}
 

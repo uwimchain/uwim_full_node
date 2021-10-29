@@ -27,20 +27,6 @@ func fillConfig(scAddress string, commission float64) error {
 		if err != nil {
 			return errors.New(fmt.Sprintf("erorr 1: %v", err))
 		}
-
-		if scAddressConfig.ConfigData != nil {
-			scAddressConfigDataJson, err := json.Marshal(scAddressConfig.ConfigData)
-			if err != nil {
-				return errors.New(fmt.Sprintf("erorr 2: %v", err))
-			}
-
-			if scAddressConfigDataJson != nil {
-				err := json.Unmarshal(scAddressConfigDataJson, &scAddressConfigData)
-				if err != nil {
-					return errors.New(fmt.Sprintf("erorr 3: %v", err))
-				}
-			}
-		}
 	}
 
 	if commission < 0 || commission > 2 {
@@ -48,12 +34,12 @@ func fillConfig(scAddress string, commission float64) error {
 	}
 
 	scAddressConfigData.Commission = commission
+	scAddressConfig.ConfigData = scAddressConfigData
 
 	jsonScAddressConfig, err := json.Marshal(scAddressConfig)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 5: %v", err))
 	}
-
 	ConfigDB.Put(scAddress, string(jsonScAddressConfig))
 
 	return nil

@@ -20,9 +20,6 @@ import (
 var (
 	c    deep_actions.Chain
 	conf deep_actions.Config
-	t    deep_actions.Token
-	a    deep_actions.Address
-	tx   deep_actions.Tx
 )
 
 func Init() {
@@ -108,12 +105,12 @@ func AddBlock() {
 			}
 		}
 
-		check := c.GetChain(strconv.FormatInt(config.BlockHeight, 10))
-		if check != "" {
-			ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
-		} else {
-			log.Println("Storage core addBlock error 2: block don`t written")
-		}
+		//check := c.GetChain(strconv.FormatInt(config.BlockHeight, 10))
+		//if check != "" {
+		ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
+		//} else {
+		//	log.Println("Storage core addBlock error 2: block don`t written")
+		//}
 	}
 }
 
@@ -249,216 +246,176 @@ func CheckBlock(height int64) bool {
 }
 
 func NewBlocksForStart(blocks []deep_actions.Chain) {
-	if memory.DownloadBlocks {
+	if !memory.DownloadBlocks {
+		return
+	}
 
-		if err := validateDownloadBlocks(blocks); err != nil {
-			log.Println("Core new blocks for start error:", err)
-		} else {
+	if err := validateDownloadBlocks(blocks); err != nil {
+		log.Println("Core new blocks for start error:", err)
+		return
+	}
 
-			for _, block := range blocks {
-				err := c.NewChain(block)
-				if err != nil {
-					log.Println("Core new blocks for start error: ", err)
-				} else {
-					for _, t := range block.Txs {
-						NewTx(
-							t.Type,
-							t.Nonce,
-							t.HashTx,
-							t.Height,
-							t.From,
-							t.To,
-							t.Amount,
-							t.TokenLabel,
-							t.Timestamp,
-							t.Tax,
-							t.Signature,
-							block.Header.Proposer,
-							t.Comment,
-						)
+	for _, block := range blocks {
+		err := c.NewChain(block)
+		if err != nil {
+			log.Println("Core new blocks for start error: ", err)
+			return
+		}
 
-						if t.Type != 2 {
-							if TransactionsMemory != nil {
-								for idx, mTransaction := range TransactionsMemory {
-									if mTransaction.Nonce == t.Nonce {
-										TransactionsMemory = append(TransactionsMemory[:idx], TransactionsMemory[idx+1:]...)
-										break
-									}
-								}
-							}
+		for _, t := range block.Txs {
+			NewTx(
+				t.Type,
+				t.Nonce,
+				t.HashTx,
+				t.Height,
+				t.From,
+				t.To,
+				t.Amount,
+				t.TokenLabel,
+				t.Timestamp,
+				t.Tax,
+				t.Signature,
+				block.Header.Proposer,
+				t.Comment,
+			)
+
+			if t.Type != 2 {
+				if TransactionsMemory != nil {
+					for idx, mTransaction := range TransactionsMemory {
+						if mTransaction.Nonce == t.Nonce {
+							TransactionsMemory = append(TransactionsMemory[:idx], TransactionsMemory[idx+1:]...)
+							break
 						}
-					}
-
-					check := c.GetChain(strconv.FormatInt(config.BlockHeight, 10))
-					if check != "" {
-						ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
-						config.BlockHeight++
-					} else {
-						log.Println("Storage core NewBlocksForStart error: block don`t written")
 					}
 				}
 			}
-
 		}
 
-		memory.DownloadBlocks = false
-
+		/*check := deep_actions.GetChain(config.BlockHeight)
+		if check == "" {
+			log.Println("Storage core NewBlocksForStart error: block don`t written")
+			return
+		}*/
+		ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
+		config.BlockHeight++
 	}
+
+	memory.DownloadBlocks = false
 }
 
 func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from string, to string, amount float64, tokenLabel string, timestamp string, tax float64, signature []byte, proposer string, comment deep_actions.Comment) {
 	switch transactionType {
 	case 1:
-		{
-			switch comment.Title {
-			case "smart_contract_abandonment":
-				{
-					address := deep_actions.GetAddress(from)
-					address.ScAbandonment()
-					break
-				}
-			}
-
+		switch comment.Title {
+		case "smart_contract_abandonment":
+			address := deep_actions.GetAddress(from)
+			address.ScAbandonment()
 			break
 		}
+		break
 	case 3:
-		{
-			commentData := make(map[string]interface{})
-			_ = json.Unmarshal(comment.Data, &commentData)
+		commentData := make(map[string]interface{})
+		_ = json.Unmarshal(comment.Data, &commentData)
 
-			switch comment.Title {
-			case "create_token_transaction":
-				{
-					/*if comment.Data == nil {
-						log.Println("Deep actions new tx error 1: comment data is null")
-						return
-					}
-					err := json.Unmarshal(comment.Data, &t)
-					if err != nil {
-						log.Println("Deep actions new tx error 11:", err)
-						return
-					}*/
+		switch comment.Title {
+		case "create_token_transaction":
+			tokenStandard := apparel.ConvertInterfaceToInt64(commentData["standard"])
+			tokenType := apparel.ConvertInterfaceToInt64(commentData["type"])
 
-					tokenStandard := apparel.ConvertInterfaceToInt64(commentData["standard"])
-					tokenType := apparel.ConvertInterfaceToInt64(commentData["type"])
+			signature, _ := base64.StdEncoding.DecodeString(apparel.ConvertInterfaceToString(commentData["signature"]))
 
-					signature, _ := base64.StdEncoding.DecodeString(apparel.ConvertInterfaceToString(commentData["signature"]))
+			token := deep_actions.NewToken(tokenType,
+				apparel.ConvertInterfaceToString(commentData["label"]),
+				apparel.ConvertInterfaceToString(commentData["name"]),
+				from, signature,
+				apparel.ConvertInterfaceToFloat64(commentData["emission"]),
+				timestamp,
+				tokenStandard)
 
-					token := deep_actions.NewToken(tokenType,
-						apparel.ConvertInterfaceToString(commentData["label"]),
-						apparel.ConvertInterfaceToString(commentData["name"]),
-						from, signature,
-						apparel.ConvertInterfaceToFloat64(commentData["emission"]),
-						timestamp,
-						tokenStandard)
+			if tokenStandard == 7 && tokenType == 2 {
+				tokenStandardCard := deep_actions.NftStandardCardData{Commission: apparel.ConvertInterfaceToFloat64(commentData["commission"])}
+				tokenStandardCardJson, _ := json.Marshal(tokenStandardCard)
 
-					if tokenStandard == 7 && tokenType == 2 {
-						tokenStandardCard := deep_actions.NftStandardCardData{Commission: apparel.ConvertInterfaceToFloat64(commentData["commission"])}
-						tokenStandardCardJson, _ := json.Marshal(tokenStandardCard)
+				token.StandardCardHistory = append(token.StandardCardHistory, deep_actions.History{
+					Id:        1,
+					Timestamp: timestamp,
+					TxHash:    hashTx,
+				})
 
-						token.StandardCardHistory = append(token.StandardCardHistory, deep_actions.History{
-							Id:        1,
-							Timestamp: timestamp,
-							TxHash:    hashTx,
-						})
-
-						token.StandardCard = string(tokenStandardCardJson)
-					}
-
-					token.Create()
-
-					break
-				}
-			case "rename_token_transaction":
-				{
-					address := deep_actions.GetAddress(from)
-					token := address.GetToken()
-					//err := json.Unmarshal(comment.Data, &t)
-					//if err != nil {
-					//	log.Println("Deep actions new tx error 2:", err)
-					//	return
-					//} else {
-					token.RenameToken(t.Name)
-					//}
-					break
-				}
-			case "change_token_standard_transaction":
-				{
-					address := deep_actions.GetAddress(from)
-					token := address.GetToken()
-					//err := json.Unmarshal(comment.Data, &t)
-					//if err != nil {
-					//	log.Println("Deep actions new tx error 3:", err)
-					//	return
-					//} else {
-					token.ChangeTokenStandard(apparel.ConvertInterfaceToInt64(commentData["standard"]), timestamp, hashTx)
-					//}
-					break
-				}
-			case "fill_token_card_transaction":
-				{
-					//tokenLabel := deep_actions.GetAddress(from).TokenLabel
-					//t.FillTokenCard(tokenLabel, comment.Data, timestamp, hashTx)
-					address := deep_actions.GetAddress(from)
-					token := address.GetToken()
-					token.FillTokenCard(comment.Data, timestamp, hashTx)
-					break
-				}
-			case "fill_token_standard_card_transaction":
-				{
-					//tokenLabel := deep_actions.GetAddress(from).TokenLabel
-					//t.FillTokenStandardCard(tokenLabel, comment.Data, timestamp, hashTx)
-					address := deep_actions.GetAddress(from)
-					token := address.GetToken()
-					token.FillTokenStandardCard(comment.Data, timestamp, hashTx)
-					break
-				}
+				token.StandardCard = string(tokenStandardCardJson)
 			}
 
+			token.Create()
+			break
+		case "rename_token_transaction":
+			address := deep_actions.GetAddress(from)
+			token := address.GetToken()
+			token.RenameToken(apparel.ConvertInterfaceToString(commentData["new_name"]))
+			break
+		case "change_token_standard_transaction":
+			address := deep_actions.GetAddress(from)
+			token := address.GetToken()
+			token.ChangeTokenStandard(apparel.ConvertInterfaceToInt64(commentData["standard"]), timestamp, hashTx)
+			break
+		case "fill_token_card_transaction":
+			address := deep_actions.GetAddress(from)
+			token := address.GetToken()
+			token.FillTokenCard(comment.Data, timestamp, hashTx)
+			break
+		case "fill_token_standard_card_transaction":
+			address := deep_actions.GetAddress(from)
+			token := address.GetToken()
+			token.FillTokenStandardCard(comment.Data, timestamp, hashTx)
 			break
 		}
+
+		break
 	}
 
-	if from != "" && to != "" {
-		amount = apparel.Round(amount)
-		tax = apparel.Round(tax)
-
-		addressFrom := deep_actions.GetAddress(from)
-		addressTo := deep_actions.GetAddress(to)
-
-		addressProposer := deep_actions.GetAddress(proposer)
-		if amount != 0 {
-			addressFrom.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
-
-			addressTo.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
-		}
-
-		if tax != 0 {
-			addressFrom.UpdateBalance(from, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), false)
-
-			if !memory.DownloadBlocks {
-				addressProposer.UpdateBalance(proposer, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), true)
-			}
-		}
-
-		transaction := deep_actions.NewTx(transactionType, nonce, hashTx, height, from, to, amount, tokenLabel, timestamp, tax, signature, comment)
-
-		rowFrom := tx.GetTx(from)
-		rowTo := tx.GetTx(to)
-
-		jsonString := deep_actions.AppendTx(rowFrom, *transaction)
-		leveldb.TxDB.Put(from, jsonString)
-
-		jsonString = deep_actions.AppendTx(rowTo, *transaction)
-		leveldb.TxDB.Put(to, jsonString)
-
-		if hashTx == "" {
-			log.Println("HASH TX IS NULL!!!!")
-		}
-		leveldb.TxsDB.Put(hashTx, strconv.FormatInt(height, 10))
-	} else {
+	if from == "" || to == "" {
 		return
 	}
+	amount = apparel.Round(amount)
+	tax = apparel.Round(tax)
+
+	addressFrom := deep_actions.GetAddress(from)
+	addressTo := deep_actions.GetAddress(to)
+
+	addressProposer := deep_actions.GetAddress(proposer)
+
+	if amount != 0 {
+		addressFrom.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
+
+		addressTo.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
+	}
+
+	if tax != 0 {
+		addressFrom.UpdateBalance(from, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), false)
+
+		if !memory.DownloadBlocks {
+			addressProposer.UpdateBalance(proposer, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), true)
+		}
+	}
+
+	tx := deep_actions.Tx{
+		Type:       transactionType,
+		Nonce:      nonce,
+		HashTx:     hashTx,
+		Height:     height,
+		From:       from,
+		To:         to,
+		Amount:     amount,
+		TokenLabel: tokenLabel,
+		Timestamp:  timestamp,
+		Tax:        tax,
+		Signature:  signature,
+		Comment:    comment,
+	}
+
+	addressFrom.AppendTx(tx)
+	addressTo.AppendTx(tx)
+
+	leveldb.TxsDB.Put(hashTx, strconv.FormatInt(height, 10))
 }
 
 func validateDownloadBlocks(blocks []deep_actions.Chain) error {
@@ -466,24 +423,10 @@ func validateDownloadBlocks(blocks []deep_actions.Chain) error {
 	return nil
 }
 
-func GetBlockHash(height int64) string {
-	Chain := c.GetChain(strconv.FormatInt(height, 10))
-	Hash := ""
-	if Chain != "" {
-		err := json.Unmarshal([]byte(Chain), &c)
-		if err != nil {
-			log.Println("Get block hash error:", err)
-		}
-		Hash = c.Hash
-	}
-
-	return Hash
-}
-
-func GetBLockForHeight(height int64) string {
+/*func GetBLockForHeight(height int64) string {
 	return c.GetChain(strconv.FormatInt(height, 10))
 
-}
+}*/
 
 func getBlockVotes() []deep_actions.Vote {
 	var result []deep_actions.Vote
@@ -496,8 +439,8 @@ func getBlockVotes() []deep_actions.Vote {
 
 func GetPrevBlockHash() string {
 	prevChainKey, _ := strconv.ParseInt(conf.GetConfig("block_height"), 10, 64)
-	prevChain := c.GetChain(strconv.FormatInt(prevChainKey-1, 10))
-	prevHash := ""
+	prevChain := deep_actions.GetChain(prevChainKey - 1)
+	/*prevHash := ""
 	if prevChain != "" {
 		err := json.Unmarshal([]byte(prevChain), &c)
 		if err != nil {
@@ -507,7 +450,8 @@ func GetPrevBlockHash() string {
 		prevHash = c.Hash
 	}
 
-	return prevHash
+	return prevHash*/
+	return prevChain.Hash
 }
 
 func GetBalance(addressString string) []deep_actions.Balance {
@@ -553,8 +497,9 @@ func GetScBalance(address string) []deep_actions.Balance {
 
 	scAddress := address
 	if !crypt.IsAddressSmartContract(address) {
-		publicKey, _ := crypt.PublicKeyFromAddress(address)
-		scAddress = crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
+		//publicKey, _ := crypt.PublicKeyFromAddress(address)
+		//scAddress = crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
+		scAddress = crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, address)
 	}
 
 	if scAddress == "" {
@@ -655,9 +600,9 @@ func CalculateReward(address string) float64 {
 	}
 }
 
-func GetTransactions(address string) []deep_actions.Tx {
+/*func GetTransactions(address string) []deep_actions.Tx {
 	var result []deep_actions.Tx
-	transactions := tx.GetTx(address)
+	transactions := deep_actions.GetTxJson(address)
 	if transactions == "" {
 		return nil
 	} else {
@@ -673,7 +618,7 @@ func GetTransactions(address string) []deep_actions.Tx {
 			}
 		}
 	}
-}
+}*/
 
 func reverseTxs(txs []deep_actions.Tx) []deep_actions.Tx {
 	if len(txs) == 0 {
@@ -683,35 +628,32 @@ func reverseTxs(txs []deep_actions.Tx) []deep_actions.Tx {
 }
 
 func GetTxForHash(hash string) string {
-	result := ""
-
 	row := leveldb.TxsDB.Get(hash)
 	if row.Value != "" {
-		block := deep_actions.Chain{}
+		//block := deep_actions.Chain{}
 
 		height := apparel.ParseInt64(row.Value)
-		jsonBlock := GetBLockForHeight(height)
-		err := json.Unmarshal([]byte(jsonBlock), &block)
-		if err != nil {
-			log.Println("Get tx for hash error:", err)
-		}
+		block := deep_actions.GetChain(height)
+		//err := json.Unmarshal([]byte(jsonBlock), &block)
+		//if err != nil {
+		//	log.Println("Get tx for hash error:", err)
+		//}
 
 		if block.Txs != nil {
-			for _, t := range block.Txs {
-				if t.HashTx == hash {
-					jsonString, err := json.Marshal(t)
+			for _, i := range block.Txs {
+				if i.HashTx == hash {
+					jsonString, err := json.Marshal(i)
 					if err != nil {
 						log.Println("Get tx for hash error:", err)
 					}
 
-					result = string(jsonString)
-					break
+					return string(jsonString)
 				}
 			}
 		}
 	}
 
-	return result
+	return ""
 }
 
 func CheckTx(hashTx string) bool {
@@ -792,10 +734,6 @@ func GetTokenForId(tokenId int64) (deep_actions.Token, error) {
 	}
 
 	return token, nil
-}
-
-func GetTokenJson(label string) string {
-	return t.GetTokenJson(label)
 }
 
 func AddTokenEmission(tokenLabel string, addEmissionAmount float64) error {

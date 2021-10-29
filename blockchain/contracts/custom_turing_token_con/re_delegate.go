@@ -7,7 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/crypt"
 	"node/memory"
 	"strconv"
 )
@@ -85,40 +84,11 @@ func reDelegate(senderAddress, recipientAddress, txHash string, amount float64, 
 
 	if memory.IsNodeProposer() {
 		if senderAddress != UwAddress {
-			txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
+			txCommentSign:=contracts.NewBuyTokenSign(
 				config.NodeNdAddress,
-			))
-
-			tx := contracts.NewTx(
-				5,
-				apparel.GetNonce(timestampD),
-				"",
-				blockHeight,
-				ScAddress,
-				UwAddress,
-				amount2,
-				TokenLabel,
-				timestampD,
-				0,
-				nil,
-				*contracts.NewComment("default_transaction", txCommentSign))
-
-			jsonString, _ := json.Marshal(contracts.Tx{
-				Type:       tx.Type,
-				Nonce:      tx.Nonce,
-				From:       tx.From,
-				To:         tx.To,
-				Amount:     tx.Amount,
-				TokenLabel: tx.TokenLabel,
-				Comment:    tx.Comment,
-			})
-			tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-			jsonString, _ = json.Marshal(tx)
-			tx.HashTx = crypt.GetHash(jsonString)
-
-			contracts.SendTx(*tx)
-			*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
+			)
+			
+			contracts.SendNewScTx(timestampD, config.BlockHeight, ScAddress, UwAddress, amount2, TokenLabel, "default_transaction", txCommentSign)
 		}
 	}
 

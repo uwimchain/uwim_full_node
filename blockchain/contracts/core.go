@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	TransactionsMemory   = &storage.TransactionsMemory
-	NewTx                = deep_actions.NewTx
-	NewComment           = deep_actions.NewComment
-	GetDelegateScBalance = storage.GetBalance(config.DelegateScAddress)
-	NewBalance           = deep_actions.NewBalance
-	SendTx               = sender.SendTx
+	//TransactionsMemory   = &storage.TransactionsMemory
+	NewTx                  = deep_actions.NewTx
+	NewComment             = deep_actions.NewComment
+	GetDelegateScBalance   = storage.GetBalance(config.DelegateScAddress)
+	NewBalance             = deep_actions.NewBalance
+	SendTx                 = sender.SendTx
 	DonateStandardCardData = deep_actions.DonateStandardCardData{}
 	NewBuyTokenSign        = deep_actions.NewBuyTokenSign
 	GetBalanceForToken     = storage.GetBalanceForToken
@@ -78,8 +78,7 @@ func GetTokenInfoForScAddress(scAddress string) *deep_actions.Token {
 	return address.GetToken()
 }
 
-// function for refund user token pairs
-func RefundTransaction(scAddress string, uwAddress string, amount float64, tokenLabel string) error { // test
+func RefundTransaction(scAddress string, uwAddress string, amount float64, tokenLabel string) error {
 	if !memory.IsNodeProposer() {
 		return nil
 	}
@@ -105,44 +104,13 @@ func RefundTransaction(scAddress string, uwAddress string, amount float64, token
 		return errors.New(fmt.Sprintf("error 3: samrt contract balance haven`t token %s", tokenLabel))
 	}
 
+	txCommentSign := NewBuyTokenSign(
+		config.NodeNdAddress,
+	)
+
 	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
-	comment := deep_actions.Comment{
-		Title: "refund_transaction",
-		Data:  nil,
-	}
-
-	tx := deep_actions.Tx{
-		Type:       5,
-		Nonce:      apparel.GetNonce(timestamp),
-		HashTx:     "",
-		Height:     config.BlockHeight,
-		From:       scAddress,
-		To:         uwAddress,
-		Amount:     amount,
-		TokenLabel: tokenLabel,
-		Timestamp:  timestamp,
-		Tax:        0,
-		Signature:  nil,
-		Comment:    comment,
-	}
-
-	jsonString, _ := json.Marshal(Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
-
-	SendTx(tx)
-	*TransactionsMemory = append(*TransactionsMemory, tx)
+	SendNewScTx(timestamp, config.BlockHeight, scAddress, uwAddress, amount, tokenLabel, "refund_transaction", txCommentSign)
 
 	return nil
 }
@@ -169,20 +137,8 @@ func SendNewScTx(timestampD string, height int64, from, to string, amount float6
 		},
 	}
 
-	/*jsonString, _ := json.Marshal(deep_actions.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)*/
 	tx.SetSignature(config.NodeSecretKey)
 	tx.SetHash()
-	/*jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)*/
 
 	if memory.IsNodeProposer() {
 		sender.SendTx(tx)

@@ -26,6 +26,8 @@ type Tx struct {
 	Comment    Comment `json:"comment"`
 }
 
+type Txs []Tx
+
 type Comment struct {
 	Title string `json:"title"`
 	Data  []byte `json:"data"`
@@ -55,7 +57,7 @@ func NewTx(txType int64, nonce int64, hashTx string, height int64, from string, 
 	}
 }
 
-func (tx *Tx) GetTx(address string) string {
+func GetTxJson(address string) string {
 	return leveldb.TxDB.Get(address).Value
 }
 
@@ -165,8 +167,16 @@ func (c *Chain) NewChain(chain Chain) error {
 	return nil
 }
 
-func (c *Chain) GetChain(height string) string {
-	return leveldb.ChainDB.Get(height).Value
+func GetChainJson(height int64) string {
+	return leveldb.ChainDB.Get(strconv.FormatInt(height, 10)).Value
+}
+
+func GetChain(height int64) *Chain {
+	chainJson := leveldb.ChainDB.Get(strconv.FormatInt(height, 10)).Value
+	chain := Chain{}
+	_ = json.Unmarshal([]byte(chainJson), &chain)
+
+	return &chain
 }
 
 type Config struct {
@@ -180,26 +190,4 @@ func (c *Config) GetConfig(key string) string {
 
 func (c *Config) ConfigUpdate(key string, value string) {
 	leveldb.ConfigDB.Put(key, value)
-}
-
-func AppendTx(addressTxsRow string, tx Tx) string {
-	var result []byte
-	var AddressTxs []Tx
-	if addressTxsRow == "" {
-		AddressTxs = append(AddressTxs, tx)
-	} else {
-		err := json.Unmarshal([]byte(addressTxsRow), &AddressTxs)
-		if err != nil {
-			log.Println("append Tx error:", err)
-		}
-
-		AddressTxs = append(AddressTxs, tx)
-	}
-
-	result, err := json.Marshal(AddressTxs)
-	if err != nil {
-		log.Println("append Tx error:", err)
-	}
-
-	return string(result)
 }
