@@ -1,2 +1,0 @@
-package bridge_con
-
