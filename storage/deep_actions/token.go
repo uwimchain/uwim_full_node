@@ -87,8 +87,6 @@ type DonateStandardCardData struct {
 	Site            string    `json:"site"`
 	Brand           string    `json:"brand"`
 	Contacts        *Contacts `json:"contacts"`
-	Conversion      float64   `json:"conversion"`
-	MaxBuy          float64   `json:"max_buy"`
 }
 
 type BuyTokenSign struct {
@@ -110,8 +108,6 @@ type StartUpStandardCardData struct {
 	ProjectName         string          `json:"project_name"`
 	Comment             string          `json:"comment"`
 	InvestorsConditions []string        `json:"investors_conditions"`
-	Conversion          float64         `json:"conversion"`
-	CollectionAmount    float64         `json:"collection_amount"`
 	ListingPromises     []string        `json:"listing_promises"`
 	Site                string          `json:"site"`
 	AdditionalData      *AdditionalData `json:"additional_data"`
@@ -131,10 +127,22 @@ type BusinessStandardCardData struct {
 	Conditions         []string        `json:"conditions"`
 	SubjectMatters     []string        `json:"subject_matters"`
 	ListingPromises    []string        `json:"listing_promises"`
-	Conversion         float64         `json:"conversion"`
-	SalesValue         float64         `json:"sales_value"`
-	Changes            bool            `json:"changes"`
-	Partners           []Partner       `json:"partners"`
+}
+
+type TradeStandardCardData struct {
+	Team               string          `json:"team"`
+	Videos             []string        `json:"videos"`
+	ImplementationPlan string          `json:"implementation_plan"`
+	EventRibbon        string          `json:"event_ribbon"`
+	Social             *Social         `json:"social"`
+	Contacts           *Contacts       `json:"contacts"`
+	ProjectName        string          `json:"project_name"`
+	Comment            string          `json:"comment"`
+	Site               string          `json:"site"`
+	AdditionalData     *AdditionalData `json:"additional_data"`
+	Conditions         []string        `json:"conditions"`
+	SubjectMatters     []string        `json:"subject_matters"`
+	ListingPromises    []string        `json:"listing_promises"`
 }
 
 type NftStandardCardData struct {
@@ -150,7 +158,6 @@ type NftStandardCardData struct {
 	AdditionalData     *AdditionalData `json:"additional_data"`
 	Conditions         []string        `json:"conditions"`
 	SubjectMatters     []string        `json:"subject_matters"`
-	Commission         float64         `json:"commission"`
 }
 
 type Partner struct {

@@ -55,9 +55,9 @@ func ValidateCreate(name, owner, recipient, tokenLabel string, price, amount flo
 		return 1019
 	}
 
-	if len(data) > config.NftTokenElMaxDataFieldLen {
-		return 10110
-	}
+	//if len(data) > config.NftTokenElMaxDataFieldLen {
+	//	return 10110
+	//}
 
 	return 0
 }

@@ -12,7 +12,6 @@ import (
 
 // function for add token pair to liquidity pool
 func Add(args *TradeArgs) error {
-	log.Println("GG 1")
 	err := add(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)
 	if err != nil {
 		refundError := contracts.RefundTransaction(args.ScAddress, args.UwAddress, args.Amount, args.TokenLabel)
@@ -187,7 +186,6 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 						return errors.New("GG 1")
 					}
 				} else {
-					//var t2 float64 = holder.Pool.FirstToken.Amount * course
 					var t2 float64 = holder.Pool.FirstToken.Amount / course
 
 					scAddressPool.FirstToken.Amount += holder.Pool.FirstToken.Amount

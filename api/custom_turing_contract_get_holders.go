@@ -5,7 +5,6 @@ import (
 	"node/blockchain/contracts/custom_turing_token_con"
 )
 
-// CustomTuringContractGetHolders method arguments
 type CustomTuringContractGetHoldersArgs struct{}
 
 func (api *Api) CustomTuringContractGetHolders(args *CustomTuringContractGetHoldersArgs, result *string) error {

@@ -13,14 +13,11 @@ import (
 	"strconv"
 )
 
-// Explorer method arguments
 type ExplorerArgs struct {
-	// blocks
 	BlocksStart int64 `json:"blocks_start"`
 	BlocksLimit int64 `json:"blocks_limit"`
 	BlocksLast  bool  `json:"blocks_last"`
 
-	// tokens
 	TokensStart int64 `json:"tokens_start"`
 	TokensLimit int64 `json:"tokens_limit"`
 }

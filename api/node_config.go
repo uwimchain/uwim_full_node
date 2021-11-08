@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-// NodeConfig method arguments
 type NodeConfigArgs struct{}
 
 type ConfigData struct {
@@ -39,7 +38,7 @@ func (api *Api) NodeConfig(args *NodeConfigArgs, result *string) error {
 		ipArr1 := strings.Split(v.Ip, ":")
 		ipArr2 := strings.Split(ipArr1[0], ".")
 
-		for idx, _ := range ipArr2 {
+		for idx := range ipArr2 {
 			regex := regexp.MustCompile("[0-9]$")
 			ipArr2[idx] = regex.ReplaceAllString(ipArr2[idx], "*")
 		}

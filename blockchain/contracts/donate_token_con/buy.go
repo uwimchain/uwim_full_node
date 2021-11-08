@@ -1,7 +1,6 @@
 package donate_token_con
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
@@ -15,22 +14,20 @@ import (
 type BuyArgs struct {
 	ScAddress   string  `json:"sc_address"`
 	UwAddress   string  `json:"uw_address"`
-	TokenLabel  string  `json:"token_label"`
 	Amount      float64 `json:"amount"`
 	TxHash      string  `json:"tx_hash"`
 	BlockHeight int64   `json:"block_height"`
 }
 
-func NewBuyArgs(scAddress string, uwAddress string, tokenLabel string, amount float64, txHash string, blockHeight int64) (*BuyArgs, error) {
-	//amount,_ = apparel.Round(amount)
+func NewBuyArgs(scAddress string, uwAddress string,amount float64, txHash string, blockHeight int64) (*BuyArgs, error) {
 	amount = apparel.Round(amount)
-	return &BuyArgs{ScAddress: scAddress, UwAddress: uwAddress, TokenLabel: tokenLabel, Amount: amount, TxHash: txHash, BlockHeight: blockHeight}, nil
+	return &BuyArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TxHash: txHash, BlockHeight: blockHeight}, nil
 }
 
 func Buy(args *BuyArgs) error {
-	err := buy(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)
+	err := buy(args.ScAddress, args.UwAddress, args.TxHash, args.Amount, args.BlockHeight)
 	if err != nil {
-		refundError := contracts.RefundTransaction(args.ScAddress, args.UwAddress, args.Amount, args.TokenLabel)
+		refundError := contracts.RefundTransaction(args.ScAddress, args.UwAddress, args.Amount, config.BaseToken)
 		if refundError != nil {
 			log.Println(fmt.Sprintf("Refund transaction %v", refundError))
 		}
@@ -40,7 +37,7 @@ func Buy(args *BuyArgs) error {
 	return nil
 }
 
-func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockHeight int64) error {
+func buy(scAddress, uwAddress, txHash string, amount float64, blockHeight int64) error {
 	timestamp := apparel.TimestampUnix()
 	timestampD := strconv.FormatInt(timestamp, 10)
 
@@ -61,10 +58,6 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New("error 4: token does not exist")
 	}
 
-	if scAddressToken.Label != tokenLabel {
-		return errors.New("error 5: token label not a smart-contract token label")
-	}
-
 	if scAddressToken.Proposer == uwAddress {
 		return errors.New("error 6: sender address is a token proposer")
 	}
@@ -74,13 +67,15 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 7: smart-contract balance for token %s", scAddressToken.Label))
 	}
 
-	scAddressTokenStandardCard := contracts.DonateStandardCardData
-	err := json.Unmarshal([]byte(scAddressToken.StandardCard), &scAddressTokenStandardCard)
-	if err != nil {
-		return errors.New(fmt.Sprintf("error 8: %v", err))
-	}
+	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
+	configData := scAddressConfig.GetData()
+	conversion := apparel.ConvertInterfaceToFloat64(configData["conversion"])
+	maxBuy := apparel.ConvertInterfaceToFloat64(configData["max_buy"])
 
-	txAmount := scAddressTokenStandardCard.Conversion * amount
+	txAmount := conversion * amount
+	if txAmount > maxBuy {
+		return errors.New("error 8: tx amount more than max buy")
+	}
 
 	if scAddressBalanceForToken.Amount < txAmount {
 		return errors.New(fmt.Sprintf("erorr 9: smart-contract balance for token %s", scAddressToken.Label))
@@ -92,11 +87,11 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New("error 10: smart-contract balance for token uwm")
 	}
 
-	txCommentSign:=contracts.NewBuyTokenSign(
+	txCommentSign := contracts.NewBuyTokenSign(
 		config.NodeNdAddress,
 	)
 
-	err = contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash, uwAddress, nil), EventDB, ConfigDB)
+	err := contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash, uwAddress, nil), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 12: %v", err))
 	}

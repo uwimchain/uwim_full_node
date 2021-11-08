@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
@@ -34,8 +33,12 @@ func GetEvents(scAddress string) (interface{}, error) {
 	return result, nil
 }
 
+func GetConfig(scAddress string) map[string]interface{} {
+	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
+	return scAddressConfig.GetData()
+}
+
 // validate
-// validate buy function
 func ValidateBuy(scAddress, uwAddress, tokenLabel string, amount float64) int64 {
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return 111
@@ -62,21 +65,19 @@ func ValidateBuy(scAddress, uwAddress, tokenLabel string, amount float64) int64 
 		return 116
 	}
 
-	scAddressTokenStandardCardData := contracts.DonateStandardCardData
-	err := json.Unmarshal([]byte(scAddressToken.StandardCard), &scAddressTokenStandardCardData)
-	if err != nil {
-		log.Println("donate token contract validate buy error:", err)
-		return 117
-	}
+	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
+	configData := scAddressConfig.GetData()
+	conversion := apparel.ConvertInterfaceToFloat64(configData["conversion"])
+	maxBuy := apparel.ConvertInterfaceToFloat64(configData["max_buy"])
 
-	if scAddressTokenStandardCardData.Conversion <= 0 {
+	if conversion <= 0 {
 		return 118
 	}
 
 	scAddressBalanceForToken := contracts.GetBalanceForToken(scAddress, scAddressToken.Label)
 	scAddressBalanceForTokenUwm := contracts.GetBalanceForToken(scAddress, config.BaseToken)
-	txAmount := scAddressTokenStandardCardData.Conversion * amount
-	if txAmount <= 0 {
+	txAmount := conversion * amount
+	if txAmount <= 0 || txAmount > maxBuy {
 		return 119
 	}
 
@@ -87,6 +88,45 @@ func ValidateBuy(scAddress, uwAddress, tokenLabel string, amount float64) int64 
 
 	if scAddressBalanceForTokenUwm.Amount < txTax || scAddressBalanceForTokenUwm.Amount-txTax < 1 {
 		return 1111
+	}
+
+	return 0
+}
+
+func ValidateFillConfig(senderAddress, recipientAddress string, conversion, maxBuy, amount float64, tokenLabel string) int {
+	if recipientAddress != config.MainNodeAddress {
+		return 121
+	}
+
+	if !crypt.IsAddressUw(senderAddress) {
+		return 122
+	}
+
+	if amount != config.FillTokenConfigCost {
+		return 123
+	}
+
+	if tokenLabel != config.BaseToken {
+		return 124
+	}
+
+	if conversion <= 0 {
+		return 125
+	}
+
+	if maxBuy <= 0 {
+		return 126
+	}
+
+	address := contracts.GetAddress(senderAddress)
+	token := address.GetToken()
+
+	if token.Id == 0 {
+		return 127
+	}
+
+	if token.Standard != 1 {
+		return 128
 	}
 
 	return 0

@@ -1,10 +1,8 @@
 package holder_con
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
@@ -25,11 +23,6 @@ func NewGetArgs(recipientAddress string, txHash string, blockHeight int64) (*Get
 func Get(args *GetArgs) error {
 	err := get(args.RecipientAddress, args.TxHash, args.BlockHeight)
 	if err != nil {
-		refundError := contracts.RefundTransaction(config.HolderScAddress, args.RecipientAddress, config.HolderGetCost,
-			config.BaseToken)
-		if refundError != nil {
-			log.Println(fmt.Sprintf("Refund transaction %v", refundError))
-		}
 		return errors.New(fmt.Sprintf("error 1: getHolder %v", err))
 	}
 
@@ -42,84 +35,61 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 		return errors.New("error 1: incorrect recipient address")
 	}
 
-	var holder []Holder
-	holderJson := HolderDB.Get(recipientAddress).Value
-	if holderJson == "" {
-		return errors.New("error 2: recipient address haven`t a deposits")
-	}
+	holders := GetHolder(recipientAddress)
 
-	err := json.Unmarshal([]byte(holderJson), &holder)
-	if err != nil {
-		return errors.New(fmt.Sprintf("erorr 3: %v", err))
-	}
-
-	if holder == nil {
+	if holders == nil {
 		return errors.New("error 4: recipient address haven`t a deposits")
 	}
 
-	var (
-		newHolder    []Holder
-		getTxs       []contracts.Tx
-		getAllAmount float64 = 0
-	)
+	var getAmount float64 = 0
 
-	for _, i := range holder {
+	var deleteHoldersIds []int
+	for idx, i := range holders {
 		if i.RecipientAddress == recipientAddress && i.GetBlockHeight <= blockHeight {
-			timestamp := apparel.TimestampUnix()
-
-			getTxs = append(getTxs, contracts.Tx{
-				Type:       5,
-				Nonce:      apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-				HashTx:     "",
-				Height:     config.BlockHeight,
-				From:       config.HolderScAddress,
-				To:         recipientAddress,
-				Amount:     i.Amount,
-				TokenLabel: i.TokenLabel,
-				Timestamp:  strconv.FormatInt(timestamp, 10),
-				Tax:        0,
-				Signature:  nil,
-				Comment:    *contracts.NewComment("default_transaction", nil),
-			})
-
-			getAllAmount += i.Amount
-
-			continue
+			getAmount += i.Amount
+			deleteHoldersIds = append(deleteHoldersIds, idx)
 		}
-
-		newHolder = append(newHolder, i)
 	}
 
-	if getTxs == nil {
+	if deleteHoldersIds == nil {
 		return errors.New("error 5: recipient address haven`t a deposits")
 	}
 
+	newHolders := Holders{}
+	for idx := range holders {
+		check := false
+		for _, i := range deleteHoldersIds {
+			if idx == i {
+				check = true
+			}
+		}
+
+		if !check {
+			newHolders = append(newHolders, holders[idx])
+		}
+	}
+
+	holders = newHolders
+
 	scAddressBalance := contracts.GetBalanceForToken(config.HolderScAddress, config.BaseToken)
-	if scAddressBalance.Amount < getAllAmount {
+	if scAddressBalance.Amount < getAmount {
 		return errors.New("error 6: Holder smart-contract address has low balance for send transactions")
 	}
 
 	timestamp := apparel.TimestampUnix()
-	err = contracts.AddEvent(config.HolderScAddress, *contracts.NewEvent("Get", timestamp, config.BlockHeight,
-		txHash, recipientAddress, getTxs), EventDB, ConfigDB)
+	err := contracts.AddEvent(config.HolderScAddress, *contracts.NewEvent("Get", timestamp, config.BlockHeight,
+		txHash, recipientAddress, nil), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 7: %v", err))
 	}
 
-	jsonHolder, err := json.Marshal(newHolder)
-	if err != nil {
-		return errors.New(fmt.Sprintf("error 8: %v", err))
-	}
 
-	HolderDB.Put(recipientAddress, string(jsonHolder))
+	holders.Update(recipientAddress)
 
-	for _, i := range getTxs {
-		txCommentSign := contracts.NewBuyTokenSign(
-			config.NodeNdAddress,
-		)
-
-		contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, txCommentSign)
-	}
+	txCommentSign := contracts.NewBuyTokenSign(
+		config.NodeNdAddress,
+	)
+	contracts.SendNewScTx(strconv.FormatInt(timestamp, 10), config.BlockHeight, config.HolderScAddress, recipientAddress, getAmount, config.BaseToken, "default_transaction", txCommentSign)
 
 	return nil
 }

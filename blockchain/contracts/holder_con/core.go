@@ -1,6 +1,9 @@
 package holder_con
 
-import "node/blockchain/contracts"
+import (
+	"encoding/json"
+	"node/blockchain/contracts"
+)
 
 var (
 	db = contracts.Database{}
@@ -16,4 +19,12 @@ type Holder struct {
 	Amount           float64 `json:"amount"`
 	TokenLabel       string  `json:"token_label"`
 	GetBlockHeight   int64   `json:"get_block_height"`
+}
+
+type Holders []Holder
+
+func (hs *Holders) Update(address string) {
+	jsonString, _ := json.Marshal(hs)
+
+	HolderDB.Put(address, string(jsonString))
 }

@@ -100,8 +100,6 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 	case config.BaseToken:
 		txTokenLabel = token.Label
 		txAmount = apparel.Round(amount * course)
-		//log.Println(fmt.Sprintf("cource amount if you send uwm for swap: %g", course))
-		//log.Println(fmt.Sprintf("tx amount if you send uwm for swap: %g %s", txAmount, txTokenLabel))
 		tax = txAmount * (scAddressConfigData.Commission / 100)
 
 		scAddressPool.FirstToken.Amount += amount

@@ -8,6 +8,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
 	"net/http"
+	"node/apparel"
 	"node/blockchain"
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/delegate_con"
@@ -307,121 +308,100 @@ func downloadBlocks(body string) {
 
 				for _, block := range blocks {
 					for _, t := range block.Txs {
+						commentData := make(map[string]interface{})
+						_ = json.Unmarshal(t.Comment.Data, &commentData)
 						switch t.Type {
 						case 1:
-							{
-								switch t.Comment.Title {
-								case "delegate_contract_transaction":
-									{
-										if t.To == config.DelegateScAddress {
-											delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
-											if err != nil {
-												log.Println("Deep actions download new tx delegate contract transaction error 1:", err)
-												break
-											}
-											err = delegate_con.Delegate(delegateArgs)
-											if err != nil {
-												log.Println("Deep actions download new tx delegate contract transaction error 2:", err)
-												break
-											}
-										} else {
-											log.Println("Deep actions download new tx delegate contract transaction error 3")
-										}
-										break
-									}
-								case "my_token_contract_confirmation_transaction":
-									{
-										confirmationArgs, err := my_token_con.NewConfirmationArgs(t.To, t.From, t.Height, t.HashTx)
-										if err != nil {
-											log.Println("Deep actions new tx confirmation transaction error 1:", err)
-											break
-										}
-
-										err = my_token_con.Confirmation(confirmationArgs)
-										if err != nil {
-											log.Println("Deep actions new tx confirmation transaction error 2:", err)
-										}
-
-										break
-									}
-								case "my_token_contract_get_percent_transaction":
-									getPercentAgs, err := my_token_con.NewGetPercentArgs(t.To, t.From, t.TokenLabel, t.Amount, t.Height, t.HashTx)
-									if err != nil {
-										log.Println("Deep actions new tx my contract get percent transaction error 1:", err)
-										break
-									}
-
-									err = my_token_con.GetPercent(getPercentAgs)
-									if err != nil {
-										log.Println("Deep actions new tx my contract get percent transaction error 2:", err)
-									}
-
+							switch t.Comment.Title {
+							case "delegate_contract_transaction":
+								delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
+								if err != nil {
+									log.Println("Deep actions download new tx delegate contract transaction error 1:", err)
 									break
-								case "trade_token_contract_add_transaction":
-									{
-										err := trade_token_con.Add(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
-										if err != nil {
-											log.Println("Deep actions new tx trade contract add transaction error 1:", err)
-											break
-										}
-										break
-									}
-								case "trade_token_contract_swap_transaction":
-									{
-										err := trade_token_con.Swap(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
-										if err != nil {
-											log.Println("Deep actions new tx trade contract swap transaction error 1:", err)
-											break
-										}
-										break
-									}
-								case "trade_token_contract_get_liq_transaction":
-									{
-										err := trade_token_con.GetLiq(trade_token_con.NewGetArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx))
-										if err != nil {
-											log.Println("Deep actions new tx trade contract get transaction error 1:", err)
-											break
-										}
-										break
-									}
-								case "trade_token_contract_get_com_transaction":
-									{
-										err := trade_token_con.GetCom(trade_token_con.NewGetArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx))
-										if err != nil {
-											log.Println("Deep actions new tx trade contract get transaction error 1:", err)
-											break
-										}
-										break
-									}
-								case "trade_token_contract_fill_config_transaction":
-									{
-										var scAddressConfig trade_token_con.TradeConfig
-										err := json.Unmarshal(t.Comment.Data, &scAddressConfig)
-										if err != nil {
-											log.Println("Deep actions new tx trade contract fill config transaction error 1:", err)
-											break
-										}
+								}
 
-										err = trade_token_con.FillConfig(trade_token_con.NewFillConfigArgs(t.To, scAddressConfig.Commission))
-										if err != nil {
-											log.Println("Deep actions new tx trade contract fill config transaction error 2:", err)
-											break
-										}
-										break
-									}
+								err = delegate_con.Delegate(delegateArgs)
+								if err != nil {
+									log.Println("Deep actions download new tx delegate contract transaction error 2:", err)
+									break
+								}
+								break
+							case "my_token_contract_confirmation_transaction":
+								confirmationArgs, err := my_token_con.NewConfirmationArgs(t.To, t.From, t.Height, t.HashTx)
+								if err != nil {
+									log.Println("Deep actions new tx confirmation transaction error 1:", err)
+									break
+								}
 
+								err = my_token_con.Confirmation(confirmationArgs)
+								if err != nil {
+									log.Println("Deep actions new tx confirmation transaction error 2:", err)
 								}
 
 								break
+							case "my_token_contract_get_percent_transaction":
+								getPercentAgs, err := my_token_con.NewGetPercentArgs(t.To, t.From, t.TokenLabel, t.Amount, t.Height, t.HashTx)
+								if err != nil {
+									log.Println("Deep actions new tx my contract get percent transaction error 1:", err)
+									break
+								}
+
+								err = my_token_con.GetPercent(getPercentAgs)
+								if err != nil {
+									log.Println("Deep actions new tx my contract get percent transaction error 2:", err)
+								}
+
+								break
+							case "trade_token_contract_add_transaction":
+								err := trade_token_con.Add(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
+								if err != nil {
+									log.Println("Deep actions new tx trade contract add transaction error 1:", err)
+									break
+								}
+								break
+							case "trade_token_contract_swap_transaction":
+								err := trade_token_con.Swap(trade_token_con.NewTradeArgs(t.To, t.From, t.Amount, t.TokenLabel, t.Height, t.HashTx))
+								if err != nil {
+									log.Println("Deep actions new tx trade contract swap transaction error 1:", err)
+									break
+								}
+								break
+							case "trade_token_contract_get_liq_transaction":
+								err := trade_token_con.GetLiq(trade_token_con.NewGetArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx))
+								if err != nil {
+									log.Println("Deep actions new tx trade contract get transaction error 1:", err)
+									break
+								}
+								break
+							case "trade_token_contract_get_com_transaction":
+								err := trade_token_con.GetCom(trade_token_con.NewGetArgs(t.To, t.From, t.TokenLabel, t.Height, t.HashTx))
+								if err != nil {
+									log.Println("Deep actions new tx trade contract get transaction error 1:", err)
+									break
+								}
+								break
+							case "trade_token_contract_fill_config_transaction":
+								args, err := trade_token_con.NewFillConfigArgs(t.To, apparel.ConvertInterfaceToFloat64(commentData["commission"]),
+									apparel.ConvertInterfaceToBool(commentData["changes"]), t.HashTx, t.Height)
+								if err != nil {
+									log.Println("Deep actions new tx trade contract fill config transaction error 1:", err)
+									break
+								}
+								if err = args.FillConfig(); err != nil {
+									log.Println("Deep actions new tx trade contract fill config transaction error 2:", err)
+									break
+								}
+								break
+
 							}
+
+							break
 						case 2:
-							{
-								if t.Comment.Title == "delegate_reward_transaction" && t.To == config.DelegateScAddress {
-									timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
-									_ = delegate_con.Bonus(t.Timestamp, timestamp)
-								}
-								break
+							if t.Comment.Title == "delegate_reward_transaction" && t.To == config.DelegateScAddress {
+								timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
+								_ = delegate_con.Bonus(t.Timestamp, timestamp)
 							}
+							break
 						case 3:
 							switch t.Comment.Title {
 							case "change_token_standard_transaction":
@@ -546,58 +526,38 @@ func downloadBlocks(body string) {
 									break
 								}
 
-								switch token.Standard {
-								case 4:
-									publicKey, err := crypt.PublicKeyFromAddress(t.From)
-									if err != nil {
-										log.Println("Deep actions new tx fill token card error 4:", err)
-										break
-									}
-
-									scAddress := crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
-									err = business_token_con.UpdatePartners(scAddress)
-									if err != nil {
-										log.Println("Business token contract new tx fill token card error 5:", err)
-										break
-									}
-
-									break
-								}
-
 								break
 							}
 
 							break
 						case 5:
-							{
-								switch t.Comment.Title {
-								case "undelegate_contract_transaction":
+							switch t.Comment.Title {
+							case "undelegate_contract_transaction":
 
-									if t.From != config.DelegateScAddress {
-										log.Println("Deep actions new tx delegate contract undelegate transaction error 1")
-									}
+								if t.From != config.DelegateScAddress {
+									log.Println("Deep actions new tx delegate contract undelegate transaction error 1")
+								}
 
-									commentData := make(map[string]interface{})
-									err := json.Unmarshal(t.Comment.Data, &commentData)
-									if err != nil {
-										log.Println("Deep actions new tx delegate contract undelegate transaction error 2:", err)
-										break
-									}
-
-									delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
-									if err != nil {
-										log.Println("Deep actions new tx delegate contract undelegate transaction error 3:", err)
-										break
-									}
-
-									err = delegate_con.UnDelegate(delegateArgs)
-									if err != nil {
-										log.Println("Deep actions new tx delegate contract undelegate transaction error 4:", err)
-									}
+								commentData := make(map[string]interface{})
+								err := json.Unmarshal(t.Comment.Data, &commentData)
+								if err != nil {
+									log.Println("Deep actions new tx delegate contract undelegate transaction error 2:", err)
 									break
+								}
+
+								delegateArgs, err := delegate_con.NewDelegateArgs(t.From, t.Amount)
+								if err != nil {
+									log.Println("Deep actions new tx delegate contract undelegate transaction error 3:", err)
+									break
+								}
+
+								err = delegate_con.UnDelegate(delegateArgs)
+								if err != nil {
+									log.Println("Deep actions new tx delegate contract undelegate transaction error 4:", err)
 								}
 								break
 							}
+							break
 						}
 					}
 				}

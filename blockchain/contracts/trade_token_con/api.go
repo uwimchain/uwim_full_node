@@ -12,8 +12,6 @@ import (
 	"strings"
 )
 
-// functions for api
-// function for get all smart-contract tokens
 func GetTokens() ([]byte, error) {
 	result := make(map[string]map[string]interface{})
 
@@ -211,7 +209,6 @@ func GetTokensForCrontab() ([]byte, error) {
 		info["price"] = price
 		info["tvl"] = tvl
 		info["volume"] = volume
-		log.Println(info)
 		tokens[token.Label] = info
 	}
 
@@ -234,6 +231,11 @@ func getInterfaceData(typeData interface{}) (map[string]interface{}, error) {
 		return nil, errors.New(fmt.Sprintf("error 2: %v", err))
 	}
 	return result, nil
+}
+
+func GetConfig(scAddress string) map[string]interface{} {
+	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
+	return scAddressConfig.GetData()
 }
 
 // function for get pool of holder
@@ -285,34 +287,21 @@ func GetScHolders(scAddress string) (interface{}, error) {
 	return scAddressHolders, nil
 }
 
-func GetScConfig(scAddress string) (interface{}, error) {
-	scAddressConfigJson := ConfigDB.Get(scAddress).Value
-	var scAddressConfig contracts.Config
-	if scAddressConfigJson != "" {
-		err := json.Unmarshal([]byte(scAddressConfigJson), &scAddressConfig)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("erorr 1: %v", err))
-		}
-	}
-
-	return scAddressConfig, nil
-}
-
-// validate functions args
-func ValidateAdd(args *TradeArgs) int64 {
-	if !crypt.IsAddressSmartContract(args.ScAddress) {
+// validate
+func ValidateAdd(scAddress, uwAddress string, amount float64, tokenLabel string) int64 {
+	if !crypt.IsAddressSmartContract(scAddress) {
 		return 511
 	}
 
-	if !crypt.IsAddressUw(args.UwAddress) {
+	if !crypt.IsAddressUw(uwAddress) {
 		return 512
 	}
 
-	if args.Amount <= 0 {
+	if amount <= 0 {
 		return 513
 	}
 
-	token := contracts.GetTokenInfoForScAddress(args.ScAddress)
+	token := contracts.GetTokenInfoForScAddress(scAddress)
 	if token.Id == 0 {
 		return 514
 	}
@@ -321,27 +310,27 @@ func ValidateAdd(args *TradeArgs) int64 {
 		return 515
 	}
 
-	if args.TokenLabel != config.BaseToken && args.TokenLabel != token.Label {
+	if tokenLabel != config.BaseToken && tokenLabel != token.Label {
 		return 516
 	}
 
 	return 0
 }
 
-func ValidateSwap(args *TradeArgs) int64 {
-	if !crypt.IsAddressSmartContract(args.ScAddress) {
+func ValidateSwap(scAddress, uwAddress string, amount float64, tokenLabel string) int64 {
+	if !crypt.IsAddressSmartContract(scAddress) {
 		return 521
 	}
 
-	if !crypt.IsAddressUw(args.UwAddress) {
+	if !crypt.IsAddressUw(uwAddress) {
 		return 522
 	}
 
-	if args.Amount <= 0 {
+	if amount <= 0 {
 		return 523
 	}
 
-	token := contracts.GetTokenInfoForScAddress(args.ScAddress)
+	token := contracts.GetTokenInfoForScAddress(scAddress)
 	if token.Id == 0 {
 		return 524
 	}
@@ -350,11 +339,11 @@ func ValidateSwap(args *TradeArgs) int64 {
 		return 525
 	}
 
-	if args.TokenLabel != config.BaseToken && args.TokenLabel != token.Label {
+	if tokenLabel != config.BaseToken && tokenLabel != token.Label {
 		return 526
 	}
 
-	scAddressPoolJson := PoolDB.Get(args.ScAddress).Value
+	scAddressPoolJson := PoolDB.Get(scAddress).Value
 	var scAddressPool Pool
 	if scAddressPoolJson != "" {
 		err := json.Unmarshal([]byte(scAddressPoolJson), &scAddressPool)
@@ -371,9 +360,9 @@ func ValidateSwap(args *TradeArgs) int64 {
 		course = scAddressPool.FirstToken.Amount / scAddressPool.SecondToken.Amount
 	}
 
-	txAmount := apparel.Round(args.Amount * course)
+	txAmount := apparel.Round(amount * course)
 
-	switch args.TokenLabel {
+	switch tokenLabel {
 	case config.BaseToken:
 		if scAddressPool.FirstToken.Amount-txAmount < 1 {
 			return 528
@@ -391,16 +380,16 @@ func ValidateSwap(args *TradeArgs) int64 {
 	return 0
 }
 
-func ValidateGetLiq(args *GetArgs) int64 {
-	if !crypt.IsAddressSmartContract(args.ScAddress) {
+func ValidateGetLiq(scAddress, uwAddress, tokenLabel string) int64 {
+	if !crypt.IsAddressSmartContract(scAddress) {
 		return 531
 	}
 
-	if !crypt.IsAddressUw(args.UwAddress) {
+	if !crypt.IsAddressUw(uwAddress) {
 		return 532
 	}
 
-	token := contracts.GetTokenInfoForScAddress(args.ScAddress)
+	token := contracts.GetTokenInfoForScAddress(scAddress)
 	if token.Id == 0 {
 		return 533
 	}
@@ -409,12 +398,12 @@ func ValidateGetLiq(args *GetArgs) int64 {
 		return 534
 	}
 
-	if args.TokenLabel != config.BaseToken && args.TokenLabel != token.Label {
+	if tokenLabel != config.BaseToken && tokenLabel != token.Label {
 		return 535
 	}
 
-	scAddressPoolJson := PoolDB.Get(args.ScAddress).Value
-	scAddressHoldersJson := HolderDB.Get(args.ScAddress).Value
+	scAddressPoolJson := PoolDB.Get(scAddress).Value
+	scAddressHoldersJson := HolderDB.Get(scAddress).Value
 	var (
 		scAddressPool    Pool
 		scAddressHolders []Holder
@@ -440,8 +429,8 @@ func ValidateGetLiq(args *GetArgs) int64 {
 
 	check := -1
 	for idx, i := range scAddressHolders {
-		if i.Address == args.UwAddress {
-			switch args.TokenLabel {
+		if i.Address == uwAddress {
+			switch tokenLabel {
 			case config.BaseToken:
 				if i.Pool.Liq.Amount <= 0 && i.Pool.SecondToken.Amount != 0 {
 					return 539
@@ -469,16 +458,16 @@ func ValidateGetLiq(args *GetArgs) int64 {
 	return 0
 }
 
-func ValidateGetCom(args *GetArgs) int64 {
-	if !crypt.IsAddressSmartContract(args.ScAddress) {
+func ValidateGetCom(scAddress, uwAddress, tokenLabel string) int64 {
+	if !crypt.IsAddressSmartContract(scAddress) {
 		return 541
 	}
 
-	if !crypt.IsAddressUw(args.UwAddress) {
+	if !crypt.IsAddressUw(uwAddress) {
 		return 542
 	}
 
-	token := contracts.GetTokenInfoForScAddress(args.ScAddress)
+	token := contracts.GetTokenInfoForScAddress(scAddress)
 	if token.Id == 0 {
 		return 543
 	}
@@ -487,12 +476,12 @@ func ValidateGetCom(args *GetArgs) int64 {
 		return 544
 	}
 
-	if args.TokenLabel != config.BaseToken && args.TokenLabel != token.Label {
+	if tokenLabel != config.BaseToken && tokenLabel != token.Label {
 		return 545
 	}
 
-	scAddressPoolJson := PoolDB.Get(args.ScAddress).Value
-	scAddressHoldersJson := HolderDB.Get(args.ScAddress).Value
+	scAddressPoolJson := PoolDB.Get(scAddress).Value
+	scAddressHoldersJson := HolderDB.Get(scAddress).Value
 	var (
 		scAddressPool    Pool
 		scAddressHolders []Holder
@@ -519,8 +508,8 @@ func ValidateGetCom(args *GetArgs) int64 {
 
 	check := -1
 	for idx, i := range scAddressHolders {
-		if i.Address == args.UwAddress {
-			switch args.TokenLabel {
+		if i.Address == uwAddress {
+			switch tokenLabel {
 			case config.BaseToken:
 				if i.Pool.FirstToken.Commission <= 0 {
 					return 549
@@ -548,49 +537,35 @@ func ValidateGetCom(args *GetArgs) int64 {
 	return 0
 }
 
-func ValidateFillConfig(args *FillConfigArgs) int64 {
-	if !crypt.IsAddressSmartContract(args.ScAddress) {
+func ValidateFillConfig(senderAddress, recipientAddress string, commission, amount float64, tokenLabel string) int {
+	if recipientAddress != config.MainNodeAddress {
 		return 551
 	}
 
-	scAddressConfigJson := ConfigDB.Get(args.ScAddress).Value
-	var (
-		scAddressConfig     contracts.Config
-		scAddressConfigData TradeConfig
-	)
-
-	if scAddressConfigJson != "" {
-		err := json.Unmarshal([]byte(scAddressConfigJson), &scAddressConfig)
-		if err != nil {
-			log.Println(fmt.Sprintf("validate fiil config error 1: %v", err))
-		}
-	}
-
-	if scAddressConfig.ConfigData != nil {
-		scAddressConfigDataJson, err := json.Marshal(scAddressConfig.ConfigData)
-		if err != nil {
-			log.Println(fmt.Sprintf("validate fiil config error 2: %v", err))
-		}
-
-		if scAddressConfigDataJson != nil {
-			err = json.Unmarshal(scAddressConfigDataJson, &scAddressConfigData)
-			if err != nil {
-				log.Println(fmt.Sprintf("validate fiil config error 3: %v", err))
-			}
-		}
-	}
-
-	if scAddressConfigData.Commission < 0 || scAddressConfigData.Commission > 2 {
+	if !crypt.IsAddressUw(senderAddress) {
 		return 552
 	}
 
-	token := contracts.GetTokenInfoForScAddress(args.ScAddress)
-	if token.Id == 0 {
+	if amount != config.FillTokenConfigCost {
 		return 553
 	}
 
-	if token.Standard != 5 {
+	if tokenLabel != config.BaseToken {
 		return 554
+	}
+
+	if commission < 0 || commission > 2 {
+		return 555
+	}
+
+	address := contracts.GetAddress(senderAddress)
+	token := address.GetToken()
+	if token.Id == 0 {
+		return 556
+	}
+
+	if token.Standard != 5 {
+		return 557
 	}
 
 	return 0

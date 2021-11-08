@@ -43,7 +43,7 @@ func validateTransactionType3(t deep_actions.Tx) error {
 			return errors.New("token name is greater than maximum")
 		}
 
-		if !CheckInInt64Array(config.TokenTypes, token.Type) {
+		if !apparel.InArray(config.TokenTypes, token.Type) {
 			return errors.New("this type of token does not exist")
 		}
 
@@ -84,11 +84,6 @@ func validateTransactionType3(t deep_actions.Tx) error {
 		}
 		break
 	case "rename_token_transaction":
-		//token := deep_actions.Token{}
-		//err := json.Unmarshal(t.Comment.Data, &token)
-		//if err != nil {
-		//	return errors.New("rename token data error")
-		//}
 		address := deep_actions.GetAddress(t.From)
 		if address.TokenLabel == "" {
 			return errors.New(fmt.Sprintf("address \"%s\" don`t have a token", address.Address))
@@ -199,6 +194,11 @@ func validateTransactionType3(t deep_actions.Tx) error {
 				return check
 			}
 			break
+		case 5:
+			if check := validate5standard(string(t.Comment.Data)); check != nil {
+				return check
+			}
+			break
 		case 7:
 			if check := validate7standard(string(t.Comment.Data)); check != nil {
 				return check
@@ -238,6 +238,16 @@ func validate4standard(data string) error {
 	err := json.Unmarshal([]byte(data), &tokenStandardCard)
 	if err != nil {
 		return errors.New("invalid token standard card data 141")
+	}
+
+	return nil
+}
+
+func validate5standard(data string) error {
+	tokenStandardCard := deep_actions.TradeStandardCardData{}
+	err := json.Unmarshal([]byte(data), &tokenStandardCard)
+	if err != nil {
+		return errors.New("invalid token standard card data 151")
 	}
 
 	return nil

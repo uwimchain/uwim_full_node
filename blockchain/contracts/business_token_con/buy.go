@@ -1,7 +1,6 @@
 package business_token_con
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
@@ -37,7 +36,6 @@ func NewBuyArgs(scAddress string, uwAddress, tokenLabel string, amount float64, 
 		return nil, errors.New(fmt.Sprintf("error 3: transaction with this hash \"%s\" does not exist", txHash))
 	}
 
-	//amount, _ = apparel.Round(amount)
 	amount = apparel.Round(amount)
 	if amount <= 0 {
 		return nil, errors.New("error 4: zero or negative amount")
@@ -60,6 +58,7 @@ func Buy(args *BuyArgs) error {
 }
 
 func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockHeight int64) error {
+	// validation
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return errors.New(fmt.Sprintf("error 1: this address \"%s\" is not a smart-contract", scAddress))
 	}
@@ -88,17 +87,17 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 6: smart-contract low balance for token \"%s\"", scAddressToken.Label))
 	}
 
-	scAddressTokenStandardCard := contracts.BusinessStandardCardData{}
-	err := json.Unmarshal([]byte(scAddressToken.StandardCard), &scAddressTokenStandardCard)
-	if err != nil {
-		return errors.New(fmt.Sprintf("error 7: %v", err))
+	// work
+	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
+	configData := scAddressConfig.GetData()
+	configDataConversion := apparel.ConvertInterfaceToFloat64(configData["conversion"])
+	configDataSalesValue := apparel.ConvertInterfaceToFloat64(configData["sales_value"])
+	txAmount := apparel.Round(amount * configDataConversion)
+
+	if txAmount > configDataSalesValue {
+		return errors.New("error 9: amount more than sales value")
 	}
 
-	//txAmount, _ := apparel.Round(amount * scAddressTokenStandardCard.Conversion)
-	txAmount := apparel.Round(amount * scAddressTokenStandardCard.Conversion)
-
-	//txTax, _ := apparel.Round(apparel.CalcTax(txAmount))
-	//txTax := apparel.Round(apparel.CalcTax(txAmount))
 	if scAddressBalanceForTokenUwm.Amount < amount || scAddressBalanceForTokenUwm.Amount-amount < 1 {
 		return errors.New(fmt.Sprintf("error 8: smart-contract low balance for token \"%s\"", scAddressToken.Label))
 	}
@@ -110,64 +109,44 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		config.NodeNdAddress,
 	)
 
-	if scAddressTokenStandardCard.Partners != nil {
-		log.Println("1")
-		scAddressPartnersJson := ContractsDB.Get(scAddress).Value
-		var scAddressPartners []Partner
-		if scAddressPartnersJson != "" {
-			err := json.Unmarshal([]byte(scAddressPartnersJson), &scAddressPartners)
-			if err != nil {
-				return errors.New(fmt.Sprintf("error 10: %v", err))
-			}
-		}
+	partners := GetPartners(scAddress)
 
-		if scAddressPartners != nil {
-			for _, i := range scAddressTokenStandardCard.Partners {
-				partnerReward := apparel.Round(amount * (i.Percent / 100))
-				if partnerReward <= 0 {
-					continue
-				}
-				for jdx, j := range scAddressPartners {
-					if j.Address == i.Address {
-						if j.Balance != nil {
-							for kdx, k := range j.Balance {
-								if k.TokenLabel == config.BaseToken {
-									scAddressPartners[jdx].Balance[kdx].Amount += partnerReward
-									scAddressPartners[jdx].Balance[jdx].UpdateTime = strconv.FormatInt(timestamp, 10)
-								}
-								break
-							}
-							break
-						} else {
-							scAddressPartners[jdx].Balance = append(scAddressPartners[jdx].Balance, contracts.Balance{
-								TokenLabel: config.BaseToken,
-								Amount:     partnerReward,
-								UpdateTime: strconv.FormatInt(timestamp, 10),
-							})
-						}
+	if partners != nil {
+		for idx, i := range partners {
+			if i.Percent <= 0 {
+				continue
+			}
+
+			partnerReward := apparel.Round(amount * (i.Percent / 100))
+			if partnerReward <= 0 {
+				continue
+			}
+
+			if i.Balance != nil {
+				for kdx, k := range i.Balance {
+					if k.TokenLabel == config.BaseToken {
+						partners[idx].Balance[kdx].Amount += partnerReward
+						partners[idx].Balance[kdx].UpdateTime = timestampD
 					}
+					break
 				}
+			} else {
+				partners[idx].Balance = append(partners[idx].Balance, contracts.Balance{
+					TokenLabel: config.BaseToken,
+					Amount:     partnerReward,
+					UpdateTime: timestampD,
+				})
 			}
 		}
 
-		jsonScAddressPartners, err := json.Marshal(scAddressPartners)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error 11: %v", err))
-		}
-
-		ContractsDB.Put(scAddress, string(jsonScAddressPartners))
+		partners.Update(scAddress)
 	}
 
-	err = contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash, uwAddress, newEventBuyTypeData(txAmount, scAddressTokenStandardCard.Conversion, scAddressToken.Label)), EventDB, ConfigDB)
-	if err != nil {
+	if err := contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash,
+		uwAddress, newEventBuyTypeData(txAmount, configDataConversion, scAddressToken.Label)), EventDB, ConfigDB); err != nil {
 		return errors.New(fmt.Sprintf("error 12: %v", err))
 	}
 
-	/*if memory.IsNodeProposer() {
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}*/
 	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction", txCommentSign)
-
 	return nil
 }

@@ -122,39 +122,6 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	)
 
 	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, tokenLabel, "default_transaction", txCommentSign)
-	/*if memory.IsNodeProposer() {
-		tx := contracts.NewTx(
-			5,
-			apparel.GetNonce(strconv.FormatInt(timestamp, 10)),
-			"",
-			config.BlockHeight,
-			scAddress,
-			uwAddress,
-			txAmount,
-			tokenLabel,
-			strconv.FormatInt(timestamp, 10),
-			0,
-			nil,
-			*contracts.NewComment("default_transaction", txCommentSign),
-		)
-
-		jsonString, _ := json.Marshal(contracts.Tx{
-			Type:       tx.Type,
-			Nonce:      tx.Nonce,
-			From:       tx.From,
-			To:         tx.To,
-			Amount:     tx.Amount,
-			TokenLabel: tx.TokenLabel,
-			Comment:    tx.Comment,
-		})
-		tx.Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-		jsonString, _ = json.Marshal(tx)
-		tx.HashTx = crypt.GetHash(jsonString)
-
-		contracts.SendTx(*tx)
-		*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-	}*/
 
 	return nil
 }

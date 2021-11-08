@@ -3,14 +3,16 @@ package api
 import (
 	"encoding/json"
 	"log"
+	"node/blockchain/contracts/business_token_con"
+	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/my_token_con"
+	"node/blockchain/contracts/trade_token_con"
 	"node/crypt"
 	"node/metrics"
 	"node/storage"
 	"node/storage/deep_actions"
 )
 
-// FindToken method arguments
 type FindTokenArgs struct {
 	Label string `json:"label"`
 }
@@ -68,6 +70,19 @@ func (api *Api) FindToken(args *FindTokenArgs, result *string) error {
 	}
 
 	info := make(map[string]interface{})
+
+	switch token.Standard {
+	case 1:
+		info["config"] = donate_token_con.GetConfig(tokenScAddress)
+		break
+	case 4:
+		info["config"] = business_token_con.GetConfig(tokenScAddress)
+		break
+	case 5:
+		info["config"] = trade_token_con.GetConfig(tokenScAddress)
+		break
+	}
+
 	info["token"] = token
 	info["token_card_history"] = token
 	info["token_sc_address"] = tokenScAddress

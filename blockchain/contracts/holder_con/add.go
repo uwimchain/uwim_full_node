@@ -27,7 +27,7 @@ func NewAddArgs(depositorAddress string, recipientAddress string, amount float64
 	return &AddArgs{DepositorAddress: depositorAddress, RecipientAddress: recipientAddress, Amount: amount, TokenLabel: tokenLabel, GetBlockHeight: getBlockHeight, TxHash: txHash, BlockHeight: blockHeight}, nil
 }
 
-func Add(args *AddArgs) error {
+func (args *AddArgs)Add() error {
 	err := add(args.DepositorAddress, args.RecipientAddress, args.TokenLabel, args.TxHash, args.Amount, args.GetBlockHeight, args.BlockHeight)
 	if err != nil {
 		refundError := contracts.RefundTransaction(config.HolderScAddress, args.DepositorAddress, args.Amount, args.TokenLabel)

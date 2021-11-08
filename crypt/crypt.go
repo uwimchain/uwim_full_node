@@ -40,7 +40,6 @@ func IsAddressNode(address string) bool {
 	return strings.HasPrefix(address, metrics.NodePrefix)
 }
 
-//Address
 func AddressFromPublicKey(hrp string, publicKey []byte) string {
 	address, _ := bech32Encode(hrp, publicKey)
 	return address
@@ -63,7 +62,6 @@ func ScAddressFromMnemonic(mnemonic string) string {
 	return AddressFromPublicKey(metrics.SmartContractPrefix, PublicKeyFromSecretKey(SecretKeyFromSeed(SeedFromMnemonic(mnemonic))))
 }
 
-//Signature
 func SignMessageWithSecretKey(secretKey []byte, message []byte) []byte {
 	return ed25519.Sign(secretKey, message)
 }
@@ -72,24 +70,20 @@ func VerifySign(publicKey []byte, data []byte, signature []byte) bool {
 	return ed25519.Verify(publicKey, data, signature)
 }
 
-//Hash
 func GetHash(jsonString []byte) string {
 	alg := sha256.New()
 	alg.Write(jsonString)
 	return hex.EncodeToString(alg.Sum(nil))
 }
 
-//Seed
 func SeedFromMnemonic(mnemonic string) []byte {
 	return pbkdf2.Key([]byte(mnemonic), nil, 2048, 32, sha512.New)
 }
 
-//SecretKey
 func SecretKeyFromSeed(seed []byte) []byte {
 	return ed25519.NewKeyFromSeed(seed)
 }
 
-//PublicKey
 func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	publicKey := make([]byte, ed25519.PublicKeySize)
 	copy(publicKey, secretKey[32:])
@@ -97,7 +91,6 @@ func PublicKeyFromSecretKey(secretKey []byte) []byte {
 	return publicKey
 }
 
-// TransactionRaw
 type TxRaw struct {
 	Nonce      int64        `json:"nonce"`
 	From       string       `json:"from"`
@@ -168,7 +161,6 @@ func PublicKeyFromAddress(address string) ([]byte, error) {
 	}
 }
 
-//Apparel
 func bech32Decode(encoded string) (string, []byte, error) {
 	hrp, decoded, err := Decode(encoded)
 	if err != nil {

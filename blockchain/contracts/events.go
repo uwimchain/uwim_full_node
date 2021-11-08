@@ -8,9 +8,9 @@ import (
 )
 
 type Event struct {
-	Hash        string      `json:"hash"`
-	PrevHash    string      `json:"prev_hash"`
-	Type        string      `json:"type"`
+	Hash     string `json:"hash"`
+	PrevHash string `json:"prev_hash"`
+	Type     string `json:"type"`
 	Timestamp   int64       `json:"timestamp"`
 	BlockHeight int64       `json:"block_height"`
 	TxHash      string      `json:"tx_hash"`
@@ -18,11 +18,59 @@ type Event struct {
 	TypeData    interface{} `json:"type_data"`
 }
 
+type Events []Event
+
 func NewEvent(eventType string, timestamp int64, blockHeight int64, txHash string, uwAddress string, typeData interface{}) *Event {
 	return &Event{Type: eventType, Timestamp: timestamp, BlockHeight: blockHeight, TxHash: txHash, UwAddress: uwAddress, TypeData: typeData}
 }
 
-// function for add new event
+func GetEvents(eventsDb *Database, scAddress string) Events {
+	eventsJson := eventsDb.Get(scAddress).Value
+	var events Events
+	_ = json.Unmarshal([]byte(eventsJson), &events)
+
+	return events
+}
+
+
+
+func (es *Events) Update(eventsDb *Database, scAddress string) {
+	eventsJson, _ := json.Marshal(es)
+	eventsDb.Put(scAddress, string(eventsJson))
+}
+
+func (e *Event) Add(configDb, eventsDb *Database, scAddress string) error {
+	config := GetConfig(configDb, scAddress)
+	events := GetEvents(eventsDb, scAddress)
+
+	if config.LastEventHash != "" {
+		e.PrevHash = config.LastEventHash
+	}
+
+	jsonEvent, err := json.Marshal(Event{
+		Hash:        "",
+		PrevHash:    e.PrevHash,
+		Type:        e.Type,
+		BlockHeight: e.BlockHeight,
+		TxHash:      e.TxHash,
+		UwAddress:   e.UwAddress,
+		TypeData:    e.TypeData,
+	})
+	if err != nil {
+		return errors.New(fmt.Sprintf("error 1: %v", err))
+	}
+
+	e.Hash = crypt.GetHash(jsonEvent)
+
+	events = append(events, *e)
+
+	config.LastEventHash = e.Hash
+
+	events.Update(eventsDb, scAddress)
+	config.Update(configDb, scAddress)
+	return nil
+}
+
 func AddEvent(scAddress string, event Event, eventDb, configDb *Database) error {
 	scAddressEventsJson := eventDb.Get(scAddress).Value
 	scAddressConfigJson := configDb.Get(scAddress).Value
@@ -47,7 +95,6 @@ func AddEvent(scAddress string, event Event, eventDb, configDb *Database) error 
 		event.PrevHash = scAddressConfig.LastEventHash
 	}
 
-	// записываю эвент в json, чтобы получить хэш, без времени
 	jsonEvent, err := json.Marshal(Event{
 		Hash:        "",
 		PrevHash:    event.PrevHash,

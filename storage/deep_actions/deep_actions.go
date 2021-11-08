@@ -150,19 +150,16 @@ func (c *Chain) NewChain(chain Chain) error {
 
 	hash := crypt.GetHash(jsonForHash)
 
-	if hash != chain.Header.PrevHash {
-
-		jsonString, err := json.Marshal(NewChain(hash, chain.Header, chain.Txs))
-		if err != nil {
-			return errors.New(fmt.Sprintf("New Chain error: %v", err))
-			//log.Println("New Chain error: ", err)
-		}
-
-		leveldb.ChainDB.Put(strconv.FormatInt(config.BlockHeight, 10), string(jsonString))
-	} else {
+	if hash == chain.Header.PrevHash {
 		return errors.New("New chain error: hash == prev hash")
-		//log.Println("New chain error: hash == prev hash")
 	}
+
+	jsonString, err := json.Marshal(NewChain(hash, chain.Header, chain.Txs))
+	if err != nil {
+		return errors.New(fmt.Sprintf("New Chain error: %v", err))
+	}
+
+	leveldb.ChainDB.Put(strconv.FormatInt(config.BlockHeight, 10), string(jsonString))
 
 	return nil
 }
@@ -188,6 +185,6 @@ func (c *Config) GetConfig(key string) string {
 	return leveldb.ConfigDB.Get(key).Value
 }
 
-func (c *Config) ConfigUpdate(key string, value string) {
+func ConfigUpdate(key string, value string) {
 	leveldb.ConfigDB.Put(key, value)
 }

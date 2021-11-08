@@ -102,8 +102,6 @@ func fromAddressList(transactions []deep_actions.Tx) ([]deep_actions.Address, er
 	for _, transaction := range transactions {
 		if transaction.From != config.VoteSuperAddress {
 			if address := deep_actions.GetAddress(transaction.From); address != nil {
-				//address := deep_actions.Address{}
-				//_ = json.Unmarshal([]byte(row), &address)
 				allTransactionsAddresses = append(allTransactionsAddresses, *address)
 			} else {
 				return nil, errors.New("senders address does not exist")
@@ -182,9 +180,11 @@ func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 		"custom_turing_token_re_delegate_transaction",
 		"default_contract_create_el_transaction",
 		"default_contract_buy_transaction",
+		"business_token_contract_get_percent_transaction",
+		"holder_contract_get_transaction",
 	}
 
-	if !CheckInStringArray(ZeroAmountCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
+	if !apparel.InArray(ZeroAmountCommentTitles, transaction.Comment.Title) && transaction.Amount <= 0 {
 		return errors.New("zero or negative amount")
 	}
 
@@ -251,46 +251,21 @@ func validateTx(transaction deep_actions.Tx, address *deep_actions.Address) erro
 			"my_token_contract_confirmation_transaction",
 			"my_token_contract_get_percent_transaction",
 			"business_token_contract_get_percent_transaction",
+			"donate_token_contract_fill_config_transaction",
+			"business_token_contract_fill_config_transaction",
 			"trade_token_contract_get_liq_transaction",
 			"trade_token_contract_get_com_transaction",
 			"trade_token_contract_fill_config_transaction",
 			"vote_contract_start_transaction",
 			"vote_contract_hard_stop_transaction",
 			"default_contract_set_price_transaction",
+			"holder_contract_get_transaction",
 		}
 
-		if CheckInStringArray(zeroTaxCommentTitles, transaction.Comment.Title) && transaction.Tax != 0 {
+		if apparel.InArray(zeroTaxCommentTitles, transaction.Comment.Title) && transaction.Tax != 0 {
 			return errors.New("invalid transaction tax amount")
 		}
 	}
 
 	return nil
-}
-
-func CheckInStringArray(stringArray []string, findable string) bool {
-	if stringArray == nil {
-		return false
-	}
-
-	for _, i := range stringArray {
-		if i == findable {
-			return true
-		}
-	}
-
-	return false
-}
-
-func CheckInInt64Array(int64Array []int64, findable int64) bool {
-	if int64Array == nil {
-		return false
-	}
-
-	for _, i := range int64Array {
-		if i == findable {
-			return true
-		}
-	}
-
-	return false
 }

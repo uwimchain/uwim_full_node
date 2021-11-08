@@ -7,6 +7,7 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
+	"node/memory"
 	"strconv"
 )
 
@@ -59,21 +60,30 @@ func Bonus(timestamp string, timestampUnix int64) error {
 		if clients != nil {
 			for _, client := range clients {
 				address := contracts.GetAddress(config.DelegateScAddress)
-				if client.Balance >= 10000 {
-					//amount, _ := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
-					amount := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
-					_ = updateBalance(client.Address, amount, true, timestampUnix)
-					address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
-				} else if client.Balance >= 1000 {
-					//amount, _ := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
-					amount := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
-					_ = updateBalance(client.Address, amount, true, timestampUnix)
-					address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
-				} else if client.Balance >= 100 {
-					//amount, _ := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
-					amount := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
-					_ = updateBalance(client.Address, amount, true, timestampUnix)
-					address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+
+				if config.BlockHeight < config.AnnualBlockHeight {
+					if client.Balance >= 10000 {
+						amount := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
+						_ = updateBalance(client.Address, amount, true, timestampUnix)
+						address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+					} else if client.Balance >= 1000 {
+						amount := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
+						_ = updateBalance(client.Address, amount, true, timestampUnix)
+						address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+					} else if client.Balance >= 100 {
+						amount := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
+						_ = updateBalance(client.Address, amount, true, timestampUnix)
+						address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+					}
+				} else {
+					if client.Balance >= 100 {
+						emitRateIdx := config.GetEmitRateIdx()
+						if emitRateIdx >= 0 {
+							amount := apparel.Round(((client.Balance * config.EmitRate[emitRateIdx]) / 1000000) * float64(len(memory.ValidatorsMemory)) * config.DelegateEmitRate)
+							_ = updateBalance(client.Address, amount, true, timestampUnix)
+							address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+						}
+					}
 				}
 			}
 		}
@@ -102,16 +112,6 @@ func SendUnDelegate(args *DelegateArgs) error {
 		config.DelegateToken, "undelegate_contract_transaction", txCommentSign)
 	return nil
 }
-
-/*type UndelegateCommentData struct {
-	Amount float64 `json:"amount"`
-}
-
-func NewUndelegateCommentData(amount float64) *UndelegateCommentData {
-	return &UndelegateCommentData{
-		Amount: amount,
-	}
-}*/
 
 func UnDelegate(args *DelegateArgs) error {
 	timestamp := apparel.TimestampUnix()

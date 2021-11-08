@@ -16,19 +16,14 @@ import (
 )
 
 var (
-	//TransactionsMemory   = &storage.TransactionsMemory
-	NewTx                  = deep_actions.NewTx
-	NewComment             = deep_actions.NewComment
-	GetDelegateScBalance   = storage.GetBalance(config.DelegateScAddress)
-	NewBalance             = deep_actions.NewBalance
-	SendTx                 = sender.SendTx
-	DonateStandardCardData = deep_actions.DonateStandardCardData{}
-	NewBuyTokenSign        = deep_actions.NewBuyTokenSign
-	GetBalanceForToken     = storage.GetBalanceForToken
-	GetBalance             = storage.GetBalance
-	AddTokenEmission       = storage.AddTokenEmission
-	GetToken               = deep_actions.GetToken
-	GetAddress             = deep_actions.GetAddress
+	NewComment         = deep_actions.NewComment
+	NewBalance         = deep_actions.NewBalance
+	NewBuyTokenSign    = deep_actions.NewBuyTokenSign
+	GetBalanceForToken = storage.GetBalanceForToken
+	GetBalance         = storage.GetBalance
+	AddTokenEmission   = storage.AddTokenEmission
+	GetToken           = deep_actions.GetToken
+	GetAddress         = deep_actions.GetAddress
 )
 
 type Config struct {
@@ -47,33 +42,26 @@ func GetConfig(configDb *Database, scAddress string) *Config {
 
 func (c *Config) GetData() map[string]interface{} {
 	configData := make(map[string]interface{})
-	//configDataJson, _ := json.Marshal(c.ConfigData)
-	//_ = json.Unmarshal(configDataJson, &configData)
-	_ = json.Unmarshal([]byte(apparel.ConvertInterfaceToString(c.ConfigData)), &configData)
+
+	if c.ConfigData != nil {
+		jsonString, _ := json.Marshal(c.ConfigData)
+		_ = json.Unmarshal(jsonString, &configData)
+	}
 
 	return configData
 }
 
+func (c *Config) Update(configDb *Database, scAddress string) {
+	jsonString, _ := json.Marshal(c)
+
+	configDb.Put(scAddress, string(jsonString))
+}
+
 type Balance deep_actions.Balance
-type BusinessStandardCardData deep_actions.BusinessStandardCardData
 type Tx deep_actions.Tx
 
-type ContractCommentData struct {
-	NodeAddress string `json:"node_address"`
-	CheckSum    []byte `json:"check_sum"`
-}
-
-func NewContractCommentData(nodeAddress string, checkSum []byte) *ContractCommentData {
-	return &ContractCommentData{
-		NodeAddress: nodeAddress,
-		CheckSum:    checkSum,
-	}
-}
-
 func GetTokenInfoForScAddress(scAddress string) *deep_actions.Token {
-
-	publicKey, _ := crypt.PublicKeyFromAddress(scAddress)
-	uwAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, publicKey)
+	uwAddress := crypt.AddressFromAnotherAddress(metrics.AddressPrefix, scAddress)
 	address := GetAddress(uwAddress)
 	return address.GetToken()
 }

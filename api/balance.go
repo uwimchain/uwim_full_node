@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"log"
-	"node/apparel"
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/delegate_con"
 	"node/blockchain/contracts/donate_token_con"
+	"node/blockchain/contracts/holder_con"
 	"node/blockchain/contracts/my_token_con"
 	"node/blockchain/contracts/trade_token_con"
 	"node/config"
@@ -18,7 +18,6 @@ import (
 	"strconv"
 )
 
-// Balance method arguments
 type BalanceArgs struct {
 	Address string `json:"address"`
 }
@@ -40,6 +39,7 @@ type BalanceInfo struct {
 	DelegateBalance   deep_actions.Balance   `json:"delegate_balance"`
 	Percents          interface{}            `json:"percents"`
 	TokenContractData interface{}            `json:"token_contract_data"`
+	Holder            interface{}            `json:"holder"`
 }
 
 func (api *Api) Balance(args *BalanceArgs, result *string) error {
@@ -62,57 +62,10 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 			break
 		case 1:
 			tokenContractData["events"], _ = donate_token_con.GetEvents(scAddress)
+			tokenContractData["config"] = donate_token_con.GetConfig(scAddress)
 			break
 		case 4:
-			partnersFromCon := business_token_con.GetPartners(scAddress)
-			tokenStandardCard := deep_actions.BusinessStandardCardData{}
-			if token.StandardCard != "" {
-				err := json.Unmarshal([]byte(token.StandardCard), &tokenStandardCard)
-				if err != nil {
-					log.Println("Api Balance error 1:", err)
-					break
-				}
-
-				if partnersFromCon != nil && tokenStandardCard.Partners != nil {
-
-					if len(partnersFromCon) != len(tokenStandardCard.Partners) {
-						log.Println("Api Balance error 2")
-					} else {
-						var partners []Partner
-
-						for _, i := range partnersFromCon {
-							partner := Partner{
-								Address: i.Address,
-							}
-
-							var balance []deep_actions.Balance
-							if i.Balance != nil {
-								for _, j := range i.Balance {
-									balance = append(balance, deep_actions.Balance{
-										TokenLabel: j.TokenLabel,
-										Amount:     j.Amount,
-										UpdateTime: j.UpdateTime,
-									})
-								}
-							}
-							partner.Balance = balance
-
-							for _, j := range tokenStandardCard.Partners {
-								if i.Address == j.Address {
-									partner.Percent = j.Percent
-									break
-								}
-							}
-
-							partners = append(partners, partner)
-						}
-
-						if partners != nil {
-							tokenContractData["partners"] = partners
-						}
-					}
-				}
-			}
+			tokenContractData["config"] = business_token_con.GetConfig(scAddress)
 			break
 		case 5:
 			scAddressHolders, err := trade_token_con.GetScHolders(scAddress)
@@ -125,15 +78,10 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 				log.Println("Api balance error 4: ", err)
 				break
 			}
-			scAddressConfig, err := trade_token_con.GetScConfig(scAddress)
-			if err != nil {
-				log.Println("Api balance error 5: ", err)
-				break
-			}
 
 			tokenContractData["holders"] = scAddressHolders
 			tokenContractData["pool"] = scAddressPool
-			tokenContractData["config"] = scAddressConfig
+			tokenContractData["config"] = trade_token_con.GetConfig(scAddress)
 			break
 		}
 	}
@@ -167,40 +115,13 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 				case 4:
 					if i.TokenLabel != token.Label {
 						partner := business_token_con.GetPartner(tokenScAddress, address.Address)
-						var tokenStandardCard deep_actions.BusinessStandardCardData
-						if t.StandardCard != "" {
-							err := json.Unmarshal([]byte(t.StandardCard), &tokenStandardCard)
-							if err != nil {
-								log.Println("Api Balance error 7: ", err)
-								break
-							}
-							var businessPercentBalance []deep_actions.Balance
-							if partner.Balance != nil {
-								for _, i := range partner.Balance {
-									businessPercentBalance = append(businessPercentBalance, deep_actions.Balance{
-										TokenLabel: i.TokenLabel,
-										Amount:     i.Amount,
-										UpdateTime: i.UpdateTime,
-									})
-								}
-							}
-
-							var businessPercentAmount float64 = 0
-							for _, i := range tokenStandardCard.Partners {
-								if i.Address == address.Address {
-									businessPercentAmount = i.Percent
-									break
-								}
-							}
-
-							percent := make(map[string]interface{})
-							percent["token_label"] = i.TokenLabel
-							percent["percent"] = businessPercentAmount
-							percent["token"] = t
-							percent["token_sc_address"] = tokenScAddress
-							percent["token_sc_balance"] = businessPercentBalance
-							percents["business"] = append(percents["business"], percent)
-						}
+						percent := make(map[string]interface{})
+						percent["token_label"] = i.TokenLabel
+						percent["percent"] = partner.Percent
+						percent["token"] = t
+						percent["token_sc_address"] = tokenScAddress
+						percent["token_sc_balance"] = partner.Balance
+						percents["business"] = append(percents["business"], percent)
 					}
 					break
 				case 5:
@@ -238,10 +159,11 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 		DelegateBalance: deep_actions.Balance{
 			TokenLabel: config.BaseToken,
 			Amount:     delegateBalance.Balance,
-			UpdateTime: apparel.UnixToString(delegateBalance.UpdateTime),
+			UpdateTime: strconv.FormatInt(delegateBalance.UpdateTime, 10),
 		},
 		Percents:          percents,
 		TokenContractData: tokenContractData,
+		Holder:            holder_con.GetHolder(args.Address),
 	})
 	if err != nil {
 		log.Println("Api Balance error 8", err)

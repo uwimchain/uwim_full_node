@@ -163,7 +163,7 @@ func (a *Address) GetTxs() []Tx {
 	})
 
 	if len(txs) > 30 {
-		return txs[len(txs)-30:]
+		return txs[:30]
 	} else {
 		return txs
 	}

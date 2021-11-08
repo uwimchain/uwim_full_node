@@ -17,7 +17,7 @@ func UnDelegateValidate(address string, amount float64) int64 {
 		return 1
 	}
 
-	delegateContractBalance := contracts.GetDelegateScBalance
+	delegateContractBalance := contracts.GetBalance(config.DelegateScAddress)
 	if delegateContractBalance == nil {
 		return 2
 	}

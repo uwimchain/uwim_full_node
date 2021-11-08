@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-func Timestamp() string {
+/*func Timestamp() string {
 	return time.Now().Format(time.RFC3339Nano)
-}
+}*/
 
 func TimestampUnix() int64 {
 	timestamp, err := time.Parse(time.RFC3339Nano, time.Now().Format(time.RFC3339Nano))
@@ -25,9 +25,9 @@ func TimestampUnix() int64 {
 	return timestamp.UnixNano()
 }
 
-func UnixToString(unixTime int64) string {
+/*func UnixToString(unixTime int64) string {
 	return time.Unix(0, unixTime).Format(time.RFC3339Nano)
-}
+}*/
 
 func CalcTax(amount float64) float64 {
 	amount = amount * config.TaxConversion * config.Tax
@@ -79,21 +79,6 @@ func SearchInArray(arr []int64, find int64) bool {
 	return false
 }
 
-func DelItemFromSlice(arr interface{}, i int) {
-	if arr == nil {
-		return
-	}
-
-	v := reflect.ValueOf(arr).Elem()
-
-	if v.Len() == i {
-		return
-	}
-
-	v.Set(reflect.AppendSlice(v.Slice(0, i), v.Slice(i+1, v.Len())))
-}
-
-//func Round(number float64) (float64, error) {
 func Round(number float64) float64 {
 	if number < 0 {
 		//return 0, errors.New("error 1: round number less than zero")
@@ -106,7 +91,6 @@ func Round(number float64) float64 {
 		return 0
 	}
 
-	//return roundNumber, nil
 	return roundNumber
 }
 
@@ -182,6 +166,24 @@ func ConvertInterfaceToString(string_ interface{}) string {
 	return result
 }
 
+func ConvertInterfaceToBool(bool_ interface{}) bool {
+	if bool_ == nil {
+		return false
+	}
+	var (
+		boolType reflect.Type = reflect.TypeOf(false)
+		result   bool         = false
+	)
+
+	v2 := reflect.ValueOf(bool_)
+	v2 = reflect.Indirect(v2)
+	if v2.Type().ConvertibleTo(boolType) {
+		result = v2.Convert(boolType).Bool()
+	}
+
+	return result
+}
+
 func ConvertInterfaceToMapStringInterface(arr_ interface{}) map[string]interface{} {
 	if arr_ == nil {
 		return nil
@@ -195,15 +197,28 @@ func ConvertInterfaceToMapStringInterface(arr_ interface{}) map[string]interface
 	return result
 }
 
-func ContainsStringInStringArr(stringArr []string, str string) bool {
-	if stringArr == nil {
+func InArray(arr interface{}, element interface{}) bool {
+	if arr == nil || element == nil {
 		return false
 	}
 
-	for _, i := range stringArr {
-		if i == str {
+	arrType := reflect.TypeOf(arr).Elem()
+	elementType := reflect.TypeOf(element)
+	if arrType != elementType {
+		return false
+	}
+
+	arrObj := reflect.ValueOf(arr)
+	arrObjLen := arrObj.Len()
+	if arrObjLen == 0 {
+		return false
+	}
+
+	for i := 0; i < arrObjLen; i++ {
+		if arrObj.Index(i).Interface() == element {
 			return true
 		}
 	}
+
 	return false
 }

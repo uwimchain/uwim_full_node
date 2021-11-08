@@ -7,7 +7,6 @@ import (
 	"node/storage"
 )
 
-// GetTokens method arguments
 type GetTokensArgs struct {
 	Start int64 `json:"start"`
 	Limit int64 `json:"limit"`

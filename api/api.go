@@ -10,7 +10,6 @@ import (
 	"node/config"
 )
 
-// RPC Api structure
 type Api struct{}
 
 type HttpConn struct {
@@ -20,7 +19,6 @@ type HttpConn struct {
 
 func (c *HttpConn) Close() error { return nil }
 
-// Start server with Test instance as a service
 func ServerStart() {
 	server := rpc.NewServer()
 	_ = server.Register(&Api{})
@@ -40,7 +38,6 @@ func ServerStart() {
 	_ = http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api" {
 
-			// Limiting the number of requests to api
 			if requestInRequestsMemory(r.Header, r.Method) {
 				http.Error(setHeaders(w, 0), "Too many requests. Try later.", 429)
 				return

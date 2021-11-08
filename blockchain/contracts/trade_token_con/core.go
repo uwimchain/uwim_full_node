@@ -54,30 +54,8 @@ func NewGetArgs(scAddress string, uwAddress string, tokenLabel string, blockHeig
 	return &GetArgs{ScAddress: scAddress, UwAddress: uwAddress, TokenLabel: tokenLabel, BlockHeight: blockHeight, TxHash: txHash}
 }
 
-func NewGetArgsForValidate(scAddress string, uwAddress string, tokenLabel string) *GetArgs {
-	return &GetArgs{ScAddress: scAddress, UwAddress: uwAddress, TokenLabel: tokenLabel}
-}
-
-/*func NewGetArgs(scAddress string, uwAddress string, tokenLabel string) *GetArgs {
-	return &GetArgs{ScAddress: scAddress, UwAddress: uwAddress, TokenLabel: tokenLabel}
-}*/
-
 type TradeConfig struct {
 	Commission float64 `json:"commission"`
-}
-
-/*type Config struct {
-	Commission    float64 `json:"commission"`
-	LastEventHash string  `json:"last_event_hash"`
-}*/
-
-type FillConfigArgs struct {
-	ScAddress  string  `json:"sc_address"`
-	Commission float64 `json:"commission"`
-}
-
-func NewFillConfigArgs(scAddress string, commission float64) *FillConfigArgs {
-	return &FillConfigArgs{ScAddress: scAddress, Commission: commission}
 }
 
 type Pool struct {
@@ -149,55 +127,3 @@ func AddToken(scAddress string) error {
 	ConfigDB.Put(scAddress, string(jsonScAddressConfig))
 	return nil
 }
-
-/*// function for refund user token pairs
-func refundTransaction(scAddress string, uwAddress string, amount float64, tokenLabel string) error { // test
-	if !memory.IsNodeProposer() {
-		return nil
-	}
-
-	scBalance := contracts.GetBalance(scAddress)
-	if scBalance == nil {
-		return errors.New("error 1: sc balance is null")
-	}
-
-	check := false
-	for _, i := range scBalance {
-		if i.TokenLabel == tokenLabel {
-			if i.Amount < amount {
-				return errors.New(fmt.Sprintf("error 2: smart contract has low balance for token %s. Has %g, but need %g", tokenLabel, i.Amount, amount))
-			}
-
-			check = true
-			break
-		}
-	}
-
-	if !check {
-		return errors.New(fmt.Sprintf("error 3: samrt contract balance haven`t token %s", tokenLabel))
-	}
-
-	timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
-	tx := contracts.NewTx(
-		5,
-		apparel.GetNonce(timestampD),
-		"",
-		config.BlockHeight,
-		scAddress,
-		uwAddress,
-		amount,
-		tokenLabel,
-		timestampD,
-		0,
-		crypt.SignMessageWithSecretKey(config.NodeSecretKey, []byte(config.NodeNdAddress)),
-		*contracts.NewComment("refund_transaction", nil),
-	)
-
-	jsonString, _ := json.Marshal(tx)
-
-	contracts.SendTx(jsonString)
-	*contracts.TransactionsMemory = append(*contracts.TransactionsMemory, *tx)
-
-	return nil
-}
-*/

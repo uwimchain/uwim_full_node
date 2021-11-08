@@ -6,7 +6,6 @@ import (
 	"node/blockchain/contracts/custom_turing_token_con"
 )
 
-// CustomTuringContractGetHolder method arguments
 type CustomTuringContractGetHolderArgs struct {
 	Address string `json:"address"`
 }

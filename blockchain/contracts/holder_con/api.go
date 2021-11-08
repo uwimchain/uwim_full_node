@@ -2,21 +2,33 @@ package holder_con
 
 import (
 	"encoding/json"
-	"log"
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
 )
 
-func ValidateAdd(depositorAddress, recipientAddress, tokenLabel string, amount float64, getBlockHeight int64) int64 {
-	if !crypt.IsAddressUw(depositorAddress) && !crypt.IsAddressSmartContract(depositorAddress) && !crypt.IsAddressNode(depositorAddress) {
+func GetHolder(address string) Holders {
+	jsonString := HolderDB.Get(address).Value
+
+	holders := Holders{}
+	if jsonString != "" {
+		_ = json.Unmarshal([]byte(jsonString), &holders)
+	}
+
+	return holders
+}
+
+func ValidateAdd(senderAddress, recipientAddress, getTokensAddress string, amount float64, tokenLabel string, getBlockHeight int64) int64 {
+	if !crypt.IsAddressUw(senderAddress) && !crypt.IsAddressSmartContract(senderAddress) && !crypt.IsAddressNode(senderAddress) {
 		return 711
 	}
 
-	if recipientAddress != "" {
-		if !crypt.IsAddressUw(recipientAddress) && !crypt.IsAddressSmartContract(recipientAddress) && !crypt.IsAddressNode(recipientAddress) {
-			return 712
-		}
+	if recipientAddress != config.HolderScAddress {
+		return 711
+	}
+
+	if !crypt.IsAddressUw(getTokensAddress) && !crypt.IsAddressSmartContract(getTokensAddress) && !crypt.IsAddressNode(getTokensAddress) {
+		return 711
 	}
 
 	if tokenLabel != config.BaseToken {
@@ -34,45 +46,44 @@ func ValidateAdd(depositorAddress, recipientAddress, tokenLabel string, amount f
 	return 0
 }
 
-func ValidateGet(recipientAddress string) int64 {
-	if !crypt.IsAddressUw(recipientAddress) && !crypt.IsAddressSmartContract(recipientAddress) && !crypt.IsAddressNode(recipientAddress) {
+func ValidateGet(senderAddress, recipientAddress string, amount float64, tokenLabel string) int64 {
+	if recipientAddress != config.HolderScAddress {
 		return 721
 	}
 
-	var holder []Holder
-	holderJson := HolderDB.Get(recipientAddress).Value
-	if holderJson == "" {
+	if !crypt.IsAddressUw(senderAddress) && !crypt.IsAddressSmartContract(senderAddress) && !crypt.IsAddressNode(senderAddress) {
 		return 722
 	}
 
-	err := json.Unmarshal([]byte(holderJson), &holder)
-	if err != nil {
-		log.Println("validate get error 1:", err)
+	if amount != 0 {
 		return 723
 	}
 
-	if holder == nil {
+	if tokenLabel != config.BaseToken {
 		return 724
+	}
+
+	holders := GetHolder(senderAddress)
+	if holders == nil {
+		return 725
 	}
 
 	check := false
 	var allTxsAmount float64 = 0
-	for _, i := range holder {
-		if i.RecipientAddress == recipientAddress && i.GetBlockHeight <= config.BlockHeight {
+	for _, i := range holders {
+		if i.RecipientAddress == senderAddress && i.GetBlockHeight <= config.BlockHeight {
 			check = true
 			allTxsAmount += i.Amount
-			//break
 		}
 	}
 
 	if !check {
-		return 725
+		return 726
 	}
 
 	scAddressBalance := contracts.GetBalanceForToken(config.HolderScAddress, config.BaseToken)
 	if scAddressBalance.Amount < allTxsAmount {
-		log.Println("GG", scAddressBalance.Amount, allTxsAmount)
-		return 726
+		return 727
 	}
 
 	return 0

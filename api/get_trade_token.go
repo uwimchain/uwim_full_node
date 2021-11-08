@@ -9,7 +9,6 @@ import (
 	"node/storage/deep_actions"
 )
 
-// GetTradeToken method arguments
 type GetTradeTokenArgs struct {
 	TokenLabel string `json:"token_label"`
 }

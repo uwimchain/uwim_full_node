@@ -6,7 +6,6 @@ import (
 	"node/storage/deep_actions"
 )
 
-// FindBlock method arguments
 type FindTransactionArgs struct {
 	Hash string `json:"hash"`
 }
