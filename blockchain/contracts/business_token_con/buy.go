@@ -87,7 +87,6 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 6: smart-contract low balance for token \"%s\"", scAddressToken.Label))
 	}
 
-	// work
 	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
 	configData := scAddressConfig.GetData()
 	configDataConversion := apparel.ConvertInterfaceToFloat64(configData["conversion"])
@@ -102,12 +101,7 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 8: smart-contract low balance for token \"%s\"", scAddressToken.Label))
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
-
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	partners := GetPartners(scAddress)
 
@@ -126,7 +120,7 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 				for kdx, k := range i.Balance {
 					if k.TokenLabel == config.BaseToken {
 						partners[idx].Balance[kdx].Amount += partnerReward
-						partners[idx].Balance[kdx].UpdateTime = timestampD
+						partners[idx].Balance[kdx].UpdateTime = timestamp
 					}
 					break
 				}
@@ -134,7 +128,7 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 				partners[idx].Balance = append(partners[idx].Balance, contracts.Balance{
 					TokenLabel: config.BaseToken,
 					Amount:     partnerReward,
-					UpdateTime: timestampD,
+					UpdateTime: timestamp,
 				})
 			}
 		}
@@ -147,6 +141,6 @@ func buy(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 		return errors.New(fmt.Sprintf("error 12: %v", err))
 	}
 
-	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction")
 	return nil
 }

@@ -18,7 +18,6 @@ func validateTransactionType2(t deep_actions.Tx) error {
 
 	switch t.Comment.Title {
 	case "reward_transaction":
-
 		publicKey, err := crypt.PublicKeyFromAddress(t.To)
 		if err != nil {
 			return errors.New("default reward transaction incorrect reward recipient")

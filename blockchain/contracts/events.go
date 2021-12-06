@@ -11,7 +11,7 @@ type Event struct {
 	Hash     string `json:"hash"`
 	PrevHash string `json:"prev_hash"`
 	Type     string `json:"type"`
-	Timestamp   int64       `json:"timestamp"`
+	Timestamp   String      `json:"timestamp"`
 	BlockHeight int64       `json:"block_height"`
 	TxHash      string      `json:"tx_hash"`
 	UwAddress   string      `json:"uw_address"`
@@ -20,8 +20,8 @@ type Event struct {
 
 type Events []Event
 
-func NewEvent(eventType string, timestamp int64, blockHeight int64, txHash string, uwAddress string, typeData interface{}) *Event {
-	return &Event{Type: eventType, Timestamp: timestamp, BlockHeight: blockHeight, TxHash: txHash, UwAddress: uwAddress, TypeData: typeData}
+func NewEvent(eventType string, timestamp string, blockHeight int64, txHash string, uwAddress string, typeData interface{}) *Event {
+	return &Event{Type: eventType, Timestamp: String(timestamp), BlockHeight: blockHeight, TxHash: txHash, UwAddress: uwAddress, TypeData: typeData}
 }
 
 func GetEvents(eventsDb *Database, scAddress string) Events {
@@ -31,8 +31,6 @@ func GetEvents(eventsDb *Database, scAddress string) Events {
 
 	return events
 }
-
-
 
 func (es *Events) Update(eventsDb *Database, scAddress string) {
 	eventsJson, _ := json.Marshal(es)

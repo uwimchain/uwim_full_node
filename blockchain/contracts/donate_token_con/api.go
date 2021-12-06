@@ -38,7 +38,6 @@ func GetConfig(scAddress string) map[string]interface{} {
 	return scAddressConfig.GetData()
 }
 
-// validate
 func ValidateBuy(scAddress, uwAddress, tokenLabel string, amount float64) int64 {
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return 111

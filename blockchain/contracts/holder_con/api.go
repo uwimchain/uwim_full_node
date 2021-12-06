@@ -24,23 +24,23 @@ func ValidateAdd(senderAddress, recipientAddress, getTokensAddress string, amoun
 	}
 
 	if recipientAddress != config.HolderScAddress {
-		return 711
+		return 712
 	}
 
 	if !crypt.IsAddressUw(getTokensAddress) && !crypt.IsAddressSmartContract(getTokensAddress) && !crypt.IsAddressNode(getTokensAddress) {
-		return 711
-	}
-
-	if tokenLabel != config.BaseToken {
 		return 713
 	}
 
-	if amount <= 0 {
+	if tokenLabel != config.BaseToken {
 		return 714
 	}
 
-	if getBlockHeight <= 0 {
+	if amount <= 0 {
 		return 715
+	}
+
+	if getBlockHeight <= 0 {
+		return 716
 	}
 
 	return 0

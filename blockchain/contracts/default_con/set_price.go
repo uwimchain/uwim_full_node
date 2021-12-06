@@ -6,6 +6,7 @@ import (
 	"node/blockchain/contracts"
 	"node/crypt"
 	"node/metrics"
+	"strconv"
 )
 
 type SetPrice struct {
@@ -33,7 +34,7 @@ func setPrice(tokenElId int64, newPrice float64, txHash string, blockHeight int6
 		return errors.New("token does not exist")
 	}
 
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	parentToken := contracts.GetToken(tokenEl.ParentLabel)
 	scAddress := crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, parentToken.Proposer)

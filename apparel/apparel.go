@@ -12,10 +12,6 @@ import (
 	"time"
 )
 
-/*func Timestamp() string {
-	return time.Now().Format(time.RFC3339Nano)
-}*/
-
 func TimestampUnix() int64 {
 	timestamp, err := time.Parse(time.RFC3339Nano, time.Now().Format(time.RFC3339Nano))
 	if err != nil {
@@ -24,10 +20,6 @@ func TimestampUnix() int64 {
 
 	return timestamp.UnixNano()
 }
-
-/*func UnixToString(unixTime int64) string {
-	return time.Unix(0, unixTime).Format(time.RFC3339Nano)
-}*/
 
 func CalcTax(amount float64) float64 {
 	amount = amount * config.TaxConversion * config.Tax
@@ -51,11 +43,8 @@ func ParseInt64(stringForParsing string) int64 {
 	return result
 }
 
-func GetNonce(timestampD string) int64 {
-	timestamp, err := strconv.ParseInt(timestampD, 10, 64)
-	if err != nil {
-		log.Println("Get nonce error:", err)
-	}
+func GetNonce(timestampString string) int64 {
+	timestamp, _ := strconv.ParseInt(timestampString, 10, 64)
 
 	nonce := timestamp + rand.Int63()
 	if nonce < 0 {
@@ -125,24 +114,6 @@ func ConvertInterfaceToInt64(int64_ interface{}) int64 {
 	v2 = reflect.Indirect(v2)
 	if v2.Type().ConvertibleTo(Int64Type) {
 		result = v2.Convert(Int64Type).Int()
-	}
-
-	return result
-}
-
-func ConvertInterfaceToInt(int_ interface{}) int {
-	if int_ == nil {
-		return 0
-	}
-	var (
-		IntType reflect.Type = reflect.TypeOf(int(0))
-		result  int          = 0
-	)
-
-	v2 := reflect.ValueOf(int_)
-	v2 = reflect.Indirect(v2)
-	if v2.Type().ConvertibleTo(IntType) {
-		result = int(v2.Convert(IntType).Int())
 	}
 
 	return result

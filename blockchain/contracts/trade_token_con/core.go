@@ -6,6 +6,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts"
+	"node/config"
+	"node/crypt"
 )
 
 var (
@@ -27,20 +29,9 @@ type TradeArgs struct {
 }
 
 func NewTradeArgs(scAddress string, uwAddress string, amount float64, tokenLabel string, blockHeight int64, txHash string) *TradeArgs {
-	//amount, _ = apparel.Round(amount)
 	amount = apparel.Round(amount)
 	return &TradeArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TokenLabel: tokenLabel, BlockHeight: blockHeight, TxHash: txHash}
 }
-
-func NewTradeArgsForValidate(scAddress string, uwAddress string, amount float64, tokenLabel string) *TradeArgs {
-	//amount, _ = apparel.Round(amount)
-	amount = apparel.Round(amount)
-	return &TradeArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TokenLabel: tokenLabel}
-}
-
-/*func NewTradeArgs(scAddress string, uwAddress string, amount float64, tokenLabel string) *TradeArgs {
-	return &TradeArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TokenLabel: tokenLabel}
-}*/
 
 type GetArgs struct {
 	ScAddress   string `json:"sc_address"`
@@ -59,20 +50,20 @@ type TradeConfig struct {
 }
 
 type Pool struct {
-	FirstToken  PoolToken `json:"first_token"`  // uwm
-	SecondToken PoolToken `json:"second_token"` // user token
+	FirstToken  PoolToken `json:"first_token"`
+	SecondToken PoolToken `json:"second_token"`
 	Liq         Liq       `json:"liq"`
 }
 
 type Liq struct {
-	Amount     float64 `json:"amount"`
-	UpdateTime int64   `json:"update_time"`
+	Amount     float64          `json:"amount"`
+	UpdateTime contracts.String `json:"update_time"`
 }
 
 type PoolToken struct {
-	Amount     float64 `json:"amount"`
-	UpdateTime int64   `json:"update_time"`
-	Commission float64 `json:"commission"`
+	Amount     float64          `json:"amount"`
+	UpdateTime contracts.String `json:"update_time"`
+	Commission float64          `json:"commission"`
 }
 
 type Holder struct {
@@ -80,8 +71,10 @@ type Holder struct {
 	Pool    Pool   `json:"pool"`
 }
 
+type Holders []Holder
+
 func AddToken(scAddress string) error {
-	var scAddressHolders []Holder
+	var scAddressHolders Holders
 
 	scAddressConfig := contracts.Config{
 		LastEventHash: "",
@@ -93,17 +86,17 @@ func AddToken(scAddress string) error {
 	scAddressPool := Pool{
 		FirstToken: PoolToken{
 			Amount:     0,
-			UpdateTime: 0,
+			UpdateTime: "",
 			Commission: 0,
 		},
 		SecondToken: PoolToken{
 			Amount:     0,
-			UpdateTime: 0,
+			UpdateTime: "",
 			Commission: 0,
 		},
 		Liq: Liq{
 			Amount:     0,
-			UpdateTime: 0,
+			UpdateTime: "",
 		},
 	}
 
@@ -126,4 +119,50 @@ func AddToken(scAddress string) error {
 	HolderDB.Put(scAddress, string(jsonScAddressHolders))
 	ConfigDB.Put(scAddress, string(jsonScAddressConfig))
 	return nil
+}
+
+func GetHolders() map[string]Holders {
+	holdersRows := HolderDB.GetAll("")
+	tokenHolders := make(map[string]Holders)
+
+	if holdersRows != nil {
+		for _, i := range holdersRows {
+			var holder Holder
+			_ = json.Unmarshal([]byte(i.Value), &holder)
+			tokenHolders[i.Key] = append(tokenHolders[i.Key], holder)
+		}
+	}
+
+	return tokenHolders
+}
+
+func FixAmount(recipient string, amount float64, tokenLabel string) float64 {
+	if !crypt.IsAddressSmartContract(recipient) {
+		return 0
+	}
+
+	poolJson := PoolDB.Get(recipient).Value
+	pool := Pool{}
+	_ = json.Unmarshal([]byte(poolJson), &pool)
+
+	var course float64 = 0
+	if pool.SecondToken.Amount > 0 && pool.FirstToken.Amount > 0 {
+		course = pool.FirstToken.Amount / pool.SecondToken.Amount
+	}
+
+	token := contracts.GetTokenInfoForScAddress(recipient)
+	if token.Label == "" {
+		return 0
+	}
+
+	switch tokenLabel {
+	case config.BaseToken:
+		amount = amount / course
+		break
+	case token.Label:
+		amount = amount * course
+		break
+	}
+
+	return amount
 }

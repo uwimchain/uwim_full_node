@@ -34,7 +34,7 @@ func GetPercent(args *GetPercentArgs) error {
 }
 
 func getPercent(scAddress, uwAddress, tokenLabel string, amount float64, txHash string, blockHeight int64) error {
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	if !crypt.IsAddressSmartContract(scAddress) || scAddress == "" {
 		return errors.New("error 1: sc address is null or not sc address")
@@ -43,10 +43,6 @@ func getPercent(scAddress, uwAddress, tokenLabel string, amount float64, txHash 
 	if !crypt.IsAddressUw(uwAddress) || uwAddress == "" {
 		return errors.New("error 2: sender address is null or not uwim address")
 	}
-
-	/*	if amount <= 0 {
-		return errors.New("error 3: null or negative amount")
-	}*/
 
 	if tokenLabel == config.BaseToken {
 		return nil
@@ -75,8 +71,6 @@ func getPercent(scAddress, uwAddress, tokenLabel string, amount float64, txHash 
 		for _, i := range scAddressPool {
 			if i.Address == uwAddress {
 				scAddressBalanceForToken := contracts.GetBalanceForToken(scAddress, scAddressToken.Label)
-				//uwAddressBalanceForToken := contracts.GetBalanceForToken(i.Address, scAddressToken.Label)
-				//uwAddressPercent = uwAddressBalanceForToken.Amount / (scAddressToken.Emission - scAddressBalanceForToken.Amount)
 				uwAddressPercent = amount / (scAddressToken.Emission - scAddressBalanceForToken.Amount)
 				break
 			}
@@ -94,31 +88,12 @@ func getPercent(scAddress, uwAddress, tokenLabel string, amount float64, txHash 
 		var transactions []contracts.Tx
 		for _, i := range scAddressBalance {
 			if i.TokenLabel != scAddressToken.Label {
-				//amount, _ := apparel.Round(i.Amount * (uwAddressPercent / 100))
 				amount := apparel.Round(i.Amount * (uwAddressPercent / 100))
-				//tax, _ := apparel.Round(apparel.CalcTax(amount))
-				tax := apparel.Round(apparel.CalcTax(amount))
-				nonce := apparel.GetNonce(strconv.FormatInt(timestamp, 10))
 
 				transaction := contracts.Tx{
-					Type:       5,
-					Nonce:      nonce,
-					HashTx:     "",
-					Height:     config.BlockHeight,
-					From:       scAddress,
 					To:         uwAddress,
 					Amount:     amount,
 					TokenLabel: i.TokenLabel,
-					Timestamp:  strconv.FormatInt(timestamp, 10),
-					Tax:        tax,
-					Signature: crypt.SignMessageWithSecretKey(
-						config.NodeSecretKey,
-						[]byte(config.NodeNdAddress),
-					),
-					Comment: *contracts.NewComment(
-						"default_transaction",
-						nil,
-					),
 				}
 
 				transactions = append(transactions, transaction)
@@ -158,10 +133,7 @@ func getPercent(scAddress, uwAddress, tokenLabel string, amount float64, txHash 
 		}
 
 		for _, i := range transactions {
-			txCommentSign := contracts.NewBuyTokenSign(
-				config.NodeNdAddress,
-			)
-			contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, txCommentSign)
+			contracts.SendNewScTx(scAddress, i.To, i.Amount, i.TokenLabel, "default_transaction")
 		}
 	}
 

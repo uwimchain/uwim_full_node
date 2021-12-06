@@ -7,16 +7,17 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
+	"strconv"
 )
 
 type HardStopArgs struct {
-	VoteNonce      string `json:"vote_nonce"`
+	VoteNonce      int64  `json:"vote_nonce"`
 	TxHash         string `json:"tx_hash"`
 	BlockHeight    int64  `json:"block_height"`
 	StopperAddress string `json:"stopper_address"`
 }
 
-func NewHardStopArgs(voteNonce string, txHash string, blockHeight int64, stopperAddress string) (*HardStopArgs, error) {
+func NewHardStopArgs(voteNonce int64, txHash string, blockHeight int64, stopperAddress string) (*HardStopArgs, error) {
 	return &HardStopArgs{VoteNonce: voteNonce, TxHash: txHash, BlockHeight: blockHeight,
 		StopperAddress: stopperAddress}, nil
 }
@@ -30,7 +31,7 @@ func HardStop(args *HardStopArgs) error {
 	return nil
 }
 
-func hardStop(txHash, stopperAddress string, voteNonce string, blockHeight int64) error {
+func hardStop(txHash, stopperAddress string, voteNonce int64, blockHeight int64) error {
 	if stopperAddress != config.VoteSuperAddress {
 		return errors.New("error 1: permission denied")
 	}
@@ -50,7 +51,7 @@ func hardStop(txHash, stopperAddress string, voteNonce string, blockHeight int64
 		return errors.New("error 2: vote does not exist")
 	}
 
-	voteJson := VoteDB.Get(VoteMemory[voteIdx].Nonce).Value
+	voteJson := VoteDB.Get(strconv.FormatInt(VoteMemory[voteIdx].Nonce, 10)).Value
 	if voteJson != "" {
 		err := json.Unmarshal([]byte(voteJson), &vote)
 		if err != nil {
@@ -58,8 +59,8 @@ func hardStop(txHash, stopperAddress string, voteNonce string, blockHeight int64
 		}
 	}
 
-	timestamp := apparel.TimestampUnix()
-	vote.EndTimestamp = timestamp
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+	vote.EndTimestamp = contracts.String(timestamp)
 
 	vote.Answers = VoteMemory[voteIdx].Answers
 
@@ -78,7 +79,7 @@ func hardStop(txHash, stopperAddress string, voteNonce string, blockHeight int64
 
 	VoteMemory = append(VoteMemory[:voteIdx], VoteMemory[voteIdx+1:]...)
 
-	VoteDB.Put(VoteMemory[voteIdx].Nonce, string(jsonVote))
+	VoteDB.Put(strconv.FormatInt(VoteMemory[voteIdx].Nonce, 10), string(jsonVote))
 
 	return nil
 }

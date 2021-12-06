@@ -19,7 +19,7 @@ type BuyArgs struct {
 	BlockHeight int64   `json:"block_height"`
 }
 
-func NewBuyArgs(scAddress string, uwAddress string,amount float64, txHash string, blockHeight int64) (*BuyArgs, error) {
+func NewBuyArgs(scAddress string, uwAddress string, amount float64, txHash string, blockHeight int64) (*BuyArgs, error) {
 	amount = apparel.Round(amount)
 	return &BuyArgs{ScAddress: scAddress, UwAddress: uwAddress, Amount: amount, TxHash: txHash, BlockHeight: blockHeight}, nil
 }
@@ -38,8 +38,7 @@ func Buy(args *BuyArgs) error {
 }
 
 func buy(scAddress, uwAddress, txHash string, amount float64, blockHeight int64) error {
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return errors.New("error 1: invalid smart-contract address")
@@ -87,15 +86,11 @@ func buy(scAddress, uwAddress, txHash string, amount float64, blockHeight int64)
 		return errors.New("error 10: smart-contract balance for token uwm")
 	}
 
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-
 	err := contracts.AddEvent(scAddress, *contracts.NewEvent("Buy", timestamp, blockHeight, txHash, uwAddress, nil), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 12: %v", err))
 	}
 
-	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(scAddress, uwAddress, txAmount, scAddressToken.Label, "default_transaction")
 	return nil
 }

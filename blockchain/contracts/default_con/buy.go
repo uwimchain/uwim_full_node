@@ -42,8 +42,7 @@ func (args *Buy) Buy() error {
 func buy(tokenElId int64, buyer, txHash string, blockHeight int64) error {
 	tokenEl := GetNftTokenElForId(tokenElId)
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	parentToken := contracts.GetToken(tokenEl.ParentLabel)
 	scAddress := crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, parentToken.Proposer)
@@ -56,19 +55,13 @@ func buy(tokenElId int64, buyer, txHash string, blockHeight int64) error {
 	parentTokenStandardCard := parentToken.GetStandardCard()
 	commission := apparel.ConvertInterfaceToFloat64(parentTokenStandardCard["commission"])
 
-	// if this buy not a first for this nft token element
 	if commission != 0 && tokenEl.Owner != parentToken.Proposer {
 		commissionAmount := tokenEl.Price * (commission / 100)
-		// commission transaction
-		contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, parentToken.Proposer, commissionAmount,
-			config.BaseToken, "default_transaction", *contracts.NewBuyTokenSign(config.NodeNdAddress))
+		contracts.SendNewScTx(scAddress, parentToken.Proposer, commissionAmount, config.BaseToken, "default_transaction")
 
-		// default transaction
-		contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, tokenEl.Owner, tokenEl.Price-commissionAmount,
-			config.BaseToken, "default_transaction", *contracts.NewBuyTokenSign(config.NodeNdAddress))
+		contracts.SendNewScTx(scAddress, tokenEl.Owner, tokenEl.Price-commissionAmount, config.BaseToken, "default_transaction")
 	} else {
-		contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, tokenEl.Owner, tokenEl.Price,
-			config.BaseToken, "default_transaction", *contracts.NewBuyTokenSign(config.NodeNdAddress))
+		contracts.SendNewScTx(scAddress, tokenEl.Owner, tokenEl.Price, config.BaseToken, "default_transaction")
 	}
 
 	tokenEl.Owner = buyer

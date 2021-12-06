@@ -10,18 +10,16 @@ type AnswerArgs struct {
 	Address             string `json:"address"`
 	Signature           []byte `json:"signature"`
 	TxHash              string `json:"tx_hash"`
-	PossibleAnswerNonce string  `json:"possible_answer_nonce"`
-	VoteNonce           string  `json:"vote_nonce"`
-	BlockHeight         int64  `json:"block_height"`
+	PossibleAnswerNonce string `json:"possible_answer_nonce"`
+	VoteNonce   int64 `json:"vote_nonce"`
+	BlockHeight int64 `json:"block_height"`
 }
 
-func NewAnswerArgs(address string, signature []byte, txHash string, possibleAnswerNonce string, voteNonce string,
-	blockHeight int64) (*AnswerArgs, error) {
-	return &AnswerArgs{Address: address, Signature: signature, TxHash: txHash, PossibleAnswerNonce: possibleAnswerNonce,
-		VoteNonce: voteNonce, BlockHeight: blockHeight}, nil
+func NewAnswerArgs(address string, signature []byte, txHash string, possibleAnswerNonce string, voteNonce int64, blockHeight int64) (*AnswerArgs, error) {
+	return &AnswerArgs{Address: address, Signature: signature, TxHash: txHash, PossibleAnswerNonce: possibleAnswerNonce, VoteNonce: voteNonce, BlockHeight: blockHeight}, nil
 }
 
-func Answer(args *AnswerArgs) error {
+func (args *AnswerArgs) Answer() error {
 	err := answer(args.Address, args.TxHash, args.Signature, args.PossibleAnswerNonce, args.VoteNonce, args.BlockHeight)
 	if err != nil {
 		return errors.New(fmt.Sprintf("answer error 1: %v", err))
@@ -29,7 +27,7 @@ func Answer(args *AnswerArgs) error {
 	return nil
 }
 
-func answer(address, txHash string, signature []byte, possibleAnswerNonce, voteNonce string, blockHeight int64) error {
+func answer(address, txHash string, signature []byte, possibleAnswerNonce string, voteNonce, blockHeight int64) error {
 	if !crypt.IsAddressUw(address) && !crypt.IsAddressSmartContract(address) && !crypt.IsAddressNode(address) {
 		return errors.New("error 1: empty or incorrect address")
 	}

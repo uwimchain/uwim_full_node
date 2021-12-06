@@ -35,20 +35,19 @@ func Delegate(args *DelegateArgs) error {
 func delegate(uwAddress, txHash string, amount float64, blockHeight int64) error {
 	holderJson := HolderDB.Get(uwAddress).Value
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	holder := Holder{}
 
 	if holderJson == "" {
 		holder.Address = uwAddress
 		holder.Amount = amount
-		holder.UpdateTime = timestampD
+		holder.UpdateTime = timestamp
 	} else {
 		_ = json.Unmarshal([]byte(holderJson), &holder)
 
 		holder.Amount += amount
-		holder.UpdateTime = timestampD
+		holder.UpdateTime = timestamp
 	}
 
 	err := contracts.AddEvent(ScAddress, *contracts.NewEvent("Delegate", timestamp, blockHeight, txHash, uwAddress, ""), EventDB, ConfigDB)

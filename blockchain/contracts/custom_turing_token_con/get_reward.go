@@ -6,7 +6,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts"
-	"node/config"
 	"strconv"
 )
 
@@ -43,14 +42,9 @@ func getReward(txHash string, blockHeight int64) error {
 		lastGetRewardBlockHeight = blockHeight
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	amount := ((24 * 60 * 60 * 60) * float64(lastGetRewardBlockHeight)) * 0.1
-
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
 
 	scAddressConfigData["last_get_reward_block_height"] = blockHeight
 
@@ -63,6 +57,6 @@ func getReward(txHash string, blockHeight int64) error {
 		return err
 	}
 
-	contracts.SendNewScTx(timestampD, config.BlockHeight, ScAddress, UwAddress, amount, TokenLabel, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(ScAddress, UwAddress, amount, TokenLabel, "default_transaction")
 	return nil
 }

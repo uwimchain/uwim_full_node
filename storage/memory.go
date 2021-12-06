@@ -3,43 +3,33 @@ package storage
 import (
 	"log"
 	"node/config"
+	"node/memory"
 	"node/storage/deep_actions"
 )
 
-var TransactionsMemory []deep_actions.Tx
+var TransactionsMemory deep_actions.Txs
 
 var BlockMemory Block
 
 type Block struct {
-	Height            int64               `json:"height"`
-	PrevHash          string              `json:"prevHash"`
-	Timestamp         string              `json:"timestamp"`
-	Proposer          string              `json:"proposer"`
-	ProposerSignature []byte              `json:"proposerSignature"`
-	Body              []deep_actions.Tx   `json:"body"`
-	Votes             []deep_actions.Vote `json:"votes"`
+	Height            int64              `json:"height"`
+	PrevHash          string             `json:"prevHash"`
+	Timestamp         string             `json:"timestamp"`
+	Proposer          string             `json:"proposer"`
+	ProposerSignature []byte             `json:"proposerSignature"`
+	Body              deep_actions.Txs   `json:"body"`
+	Votes             deep_actions.Votes `json:"votes"`
 }
 
-func NewBlock(height int64, prevHash string, timestamp string, proposer string, proposerSignature []byte,
-	body []deep_actions.Tx, votes []deep_actions.Vote) *Block {
-	return &Block{
-		Height:            height,
-		PrevHash:          prevHash,
-		Timestamp:         timestamp,
-		Proposer:          proposer,
-		ProposerSignature: proposerSignature,
-		Body:              body,
-		Votes:             votes,
+func AppendTxToTransactionMemory(tx deep_actions.Tx) {
+	if memory.IsValidator() {
+		TransactionsMemory = append(TransactionsMemory, tx)
 	}
 }
 
-func Update() {
-	cleanMemory()
-}
-
-func cleanMemory() {
+func ClearTransactionMemory() {
 	if TransactionsMemory != nil {
-		var clearedMemory []deep_actions.Tx
+		var clearedMemory deep_actions.Txs
 		for _, transaction := range TransactionsMemory {
 			if (transaction.Height + config.StorageMemoryLifeIter) >= config.BlockHeight {
 				clearedMemory = append(clearedMemory, transaction)

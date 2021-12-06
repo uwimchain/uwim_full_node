@@ -18,9 +18,9 @@ var (
 )
 
 type Client struct {
-	Address    string  `json:"address"`
-	Balance    float64 `json:"balance"`
-	UpdateTime int64   `json:"update_time"`
+	Address    string           `json:"address"`
+	Balance    float64          `json:"balance"`
+	UpdateTime contracts.String `json:"update_time"`
 }
 
 type DelegateArgs struct {
@@ -33,7 +33,7 @@ func NewDelegateArgs(address string, amount float64) (*DelegateArgs, error) {
 }
 
 func Delegate(args *DelegateArgs) error {
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	err := updateBalance(args.Address, args.Amount, true, timestamp)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func Delegate(args *DelegateArgs) error {
 	return nil
 }
 
-func Bonus(timestamp string, timestampUnix int64) error {
+func Bonus(timestamp string) error {
 	rows := ClientDB.GetAll("")
 	if rows != nil {
 		var clients []Client
@@ -63,25 +63,25 @@ func Bonus(timestamp string, timestampUnix int64) error {
 
 				if config.BlockHeight < config.AnnualBlockHeight {
 					if client.Balance >= 10000 {
-						amount := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / 6)))
-						_ = updateBalance(client.Address, amount, true, timestampUnix)
-						address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+						amount := apparel.Round(client.Balance * (0.12 / 30 / (60 * 60 * 24 / 51 / float64(len(memory.ValidatorsMemory)))))
+						_ = updateBalance(client.Address, amount, true, timestamp)
+						address.UpdateBalance(config.DelegateScAddress, amount, config.DelegateToken, timestamp, false)
 					} else if client.Balance >= 1000 {
-						amount := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / 6)))
-						_ = updateBalance(client.Address, amount, true, timestampUnix)
-						address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+						amount := apparel.Round(client.Balance * (0.08 / 30 / (60 * 60 * 24 / 51 / float64(len(memory.ValidatorsMemory)))))
+						_ = updateBalance(client.Address, amount, true, timestamp)
+						address.UpdateBalance(config.DelegateScAddress, amount, config.DelegateToken, timestamp, false)
 					} else if client.Balance >= 100 {
-						amount := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / 6)))
-						_ = updateBalance(client.Address, amount, true, timestampUnix)
-						address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+						amount := apparel.Round(client.Balance * (0.05 / 30 / (60 * 60 * 24 / 51 / float64(len(memory.ValidatorsMemory)))))
+						_ = updateBalance(client.Address, amount, true, timestamp)
+						address.UpdateBalance(config.DelegateScAddress, amount, config.DelegateToken, timestamp, false)
 					}
 				} else {
 					if client.Balance >= 100 {
 						emitRateIdx := config.GetEmitRateIdx()
 						if emitRateIdx >= 0 {
 							amount := apparel.Round(((client.Balance * config.EmitRate[emitRateIdx]) / 1000000) * float64(len(memory.ValidatorsMemory)) * config.DelegateEmitRate)
-							_ = updateBalance(client.Address, amount, true, timestampUnix)
-							address.UpdateBalance(config.DelegateScAddress, *contracts.NewBalance(config.DelegateToken, amount, timestamp), false)
+							_ = updateBalance(client.Address, amount, true, timestamp)
+							address.UpdateBalance(config.DelegateScAddress, amount, config.DelegateToken, timestamp, false)
 						}
 					}
 				}
@@ -99,22 +99,16 @@ func SendUnDelegate(args *DelegateArgs) error {
 		return errors.New("Blockchain contracts delegate contract undelegate error 1: not coins for undelegate")
 	}
 
-	timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	if args.Amount <= 0 || args.Amount >= client.Balance {
 		args.Amount = client.Balance
 	}
 
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-
-	contracts.SendNewScTx(timestampD, config.BlockHeight, config.DelegateScAddress, args.Address, args.Amount,
-		config.DelegateToken, "undelegate_contract_transaction", txCommentSign)
+	contracts.SendNewScTx(config.DelegateScAddress, args.Address, args.Amount, config.DelegateToken, "undelegate_contract_transaction")
 	return nil
 }
 
 func UnDelegate(args *DelegateArgs) error {
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	args.Amount = apparel.Round(args.Amount)
 	client := getClient(args.Address)
 	log.Println(args.Address)
@@ -137,14 +131,10 @@ func GetBalance(address string) Client {
 	return balance
 }
 
-func updateBalance(address string, amount float64, side bool, timestamp int64) error {
-	//amount, _ = apparel.Round(amount)
+func updateBalance(address string, amount float64, side bool, timestamp string) error {
 	amount = apparel.Round(amount)
 	client := getClient(address)
 
-	//amount, _ = apparel.Round(amount)
-	amount = apparel.Round(amount)
-	//client.Balance, _ = apparel.Round(client.Balance)
 	client.Balance = apparel.Round(client.Balance)
 
 	switch side {
@@ -159,11 +149,10 @@ func updateBalance(address string, amount float64, side bool, timestamp int64) e
 		}
 	}
 
-	// Сохранение изменённого баланса пользователя в базу данных
 	jsonString, err := json.Marshal(Client{
 		Address:    address,
 		Balance:    client.Balance,
-		UpdateTime: timestamp,
+		UpdateTime: contracts.String(timestamp),
 	})
 	if err != nil {
 		return errors.New("Blockchain contracts delegate contract update balance error 2")

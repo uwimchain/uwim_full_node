@@ -49,8 +49,7 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 		return errors.New("error 4: token does not exist")
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	check := -1
 	for idx, i := range scAddressHolders {
@@ -63,16 +62,16 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 				scAddressPool.Liq.Amount -= i.Pool.Liq.Amount
 
 				scAddressPool.FirstToken.Amount -= getFirstTokenAmount
-				scAddressPool.FirstToken.UpdateTime = timestamp
+				scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 				scAddressPool.SecondToken.Amount -= getSecondTokenAmount
-				scAddressPool.SecondToken.UpdateTime = timestamp
+				scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 				scAddressHolders[idx].Pool.FirstToken.Amount += getFirstTokenAmount
-				scAddressHolders[idx].Pool.FirstToken.UpdateTime = timestamp
+				scAddressHolders[idx].Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 				scAddressHolders[idx].Pool.SecondToken.Amount += getSecondTokenAmount
-				scAddressHolders[idx].Pool.SecondToken.UpdateTime = timestamp
+				scAddressHolders[idx].Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 				scAddressHolders[idx].Pool.Liq.Amount = 0
 			}
@@ -117,11 +116,7 @@ func getLiq(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	PoolDB.Put(scAddress, string(jsonScAddressPool))
 	HolderDB.Put(scAddress, string(jsonScAddressHolders))
 
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-
-	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, tokenLabel, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(scAddress, uwAddress, txAmount, tokenLabel, "default_transaction")
 
 	return nil
 }

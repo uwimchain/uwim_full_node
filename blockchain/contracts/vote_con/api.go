@@ -15,7 +15,8 @@ func GetVotes() []Vote {
 	return VoteMemory
 }
 
-func GetVoteForNonce(voteNonce string) Vote {
+//func GetVoteForNonce(voteNonce string) Vote {
+func GetVoteForNonce(voteNonce int64) Vote {
 	var vote Vote
 	for _, i := range VoteMemory {
 		if i.Nonce == voteNonce {
@@ -26,7 +27,8 @@ func GetVoteForNonce(voteNonce string) Vote {
 	return vote
 }
 
-func GetVoteForNonceJson(voteNonce string) interface{} {
+//func GetVoteForNonceJson(voteNonce string) interface{} {
+func GetVoteForNonceJson(voteNonce int64) interface{} {
 	for _, i := range VoteMemory {
 		if i.Nonce == voteNonce {
 			return i
@@ -85,7 +87,8 @@ func ValidateStart(title, description, starterAddress string, answerOptions inte
 	return 0
 }
 
-func ValidateHardStop(stopperAddress string, voteNonce string) int64 {
+//func ValidateHardStop(stopperAddress string, voteNonce string) int64 {
+func ValidateHardStop(stopperAddress string, voteNonce int64) int64 {
 	if stopperAddress != config.VoteSuperAddress {
 		return 821
 	}
@@ -105,7 +108,8 @@ func ValidateHardStop(stopperAddress string, voteNonce string) int64 {
 	return 0
 }
 
-func ValidateAnswer(address string, voteNonce, possibleAnswerNonce string) int64 {
+//func ValidateAnswer(address string, voteNonce, possibleAnswerNonce string) int64 {
+func ValidateAnswer(address string, voteNonce int64, possibleAnswerNonce string) int64 {
 	if !crypt.IsAddressUw(address) && !crypt.IsAddressSmartContract(address) && !crypt.IsAddressNode(address) {
 		return 831
 	}

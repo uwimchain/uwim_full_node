@@ -9,7 +9,6 @@ import (
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
-	"strings"
 )
 
 func GetTokens() ([]byte, error) {
@@ -63,7 +62,6 @@ func GetTokens() ([]byte, error) {
 	return jsonString, nil
 }
 
-// function for get pool of token
 func GetToken(scAddress string) ([]byte, error) {
 	info := make(map[string]interface{})
 
@@ -72,15 +70,10 @@ func GetToken(scAddress string) ([]byte, error) {
 		return nil, errors.New("error 1: token does not exist")
 	}
 
-	tokenInfo := make(map[string]interface{})
-	tokenInfo["name"] = token.Name
-	tokenInfo["label"] = token.Label
-
 	var (
-		pool   Pool
-		events []contracts.Event
-		price  float64 = 0
-		tvl    float64 = 0
+		pool Pool
+		price float64 = 0
+		tvl   float64 = 0
 	)
 	poolJson := PoolDB.Get(scAddress).Value
 	if poolJson != "" {
@@ -90,25 +83,16 @@ func GetToken(scAddress string) ([]byte, error) {
 		}
 	}
 
-	eventsJson := EventDB.Get(scAddress).Value
-	if eventsJson != "" {
-		err := json.Unmarshal([]byte(eventsJson), &events)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error 3: %v", err))
-		}
-	}
-
 	if pool.FirstToken.Amount > 0 && pool.SecondToken.Amount > 0 {
 		price = pool.FirstToken.Amount / pool.SecondToken.Amount
 
 		tvl = pool.FirstToken.Amount + (pool.SecondToken.Amount * price)
 	}
 
-	info["token"] = tokenInfo
 	info["pool"] = pool
 	info["price"] = price
 	info["tvl"] = tvl
-	info["events"] = events
+	info["events"] = contracts.GetEvents(EventDB, scAddress)
 
 	jsonString, err := json.Marshal(info)
 	if err != nil {
@@ -118,130 +102,14 @@ func GetToken(scAddress string) ([]byte, error) {
 	return jsonString, nil
 }
 
-// function for get trade tokens to crontab
-func GetTokensForCrontab() ([]byte, error) {
-	poolsJson := PoolDB.GetAll("")
-	if poolsJson == nil {
-		return nil, errors.New("error 1: pools is null")
-	}
-
-	tokens := make(map[string]interface{})
-	for _, i := range poolsJson {
-		eventsJson := EventDB.Get(i.Key).Value
-		info := make(map[string]interface{})
-		poolJson := i.Value
-		var (
-			pool   Pool
-			events []contracts.Event
-			price  float64 = 0
-			tvl    float64 = 0
-			volume float64 = 0
-		)
-		if poolJson != "" {
-			err := json.Unmarshal([]byte(poolJson), &pool)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error 2: %v", err))
-			}
-		}
-		if eventsJson != "" {
-			err := json.Unmarshal([]byte(eventsJson), &events)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error 3: %v", err))
-			}
-		}
-
-		token := contracts.GetTokenInfoForScAddress(i.Key)
-		if token.Id == 0 {
-			return nil, errors.New("error 4: token does not exist")
-		}
-
-		if pool.FirstToken.Amount > 0 && pool.SecondToken.Amount > 0 {
-			price = pool.FirstToken.Amount / pool.SecondToken.Amount
-
-			tvl = pool.FirstToken.Amount + (pool.SecondToken.Amount * price)
-		}
-
-		for _, i := range events {
-			if strings.ToLower(i.Type) != "swap" {
-				continue
-			}
-
-			typeData, err := getInterfaceData(i.TypeData)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error 5: get interface data %v", err))
-			}
-			if typeData["first_token"] == nil || typeData["second_token"] == nil {
-				continue
-			}
-
-			typeDataFirstToken, err := getInterfaceData(typeData["first_token"])
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error 6: get interface data %v", err))
-			}
-			typeDataSecondToken, err := getInterfaceData(typeData["second_token"])
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error 7: get interface data %v", err))
-			}
-
-			firstTokenAmount := apparel.ConvertInterfaceToFloat64(typeDataFirstToken["amount"])
-			secondTokenAmount := apparel.ConvertInterfaceToFloat64(typeDataSecondToken["amount"])
-			var course float64 = 0
-			if typeDataFirstToken["token_label"] == config.BaseToken {
-				if firstTokenAmount > 0 && secondTokenAmount > 0 {
-					course = firstTokenAmount / secondTokenAmount
-				}
-
-				amount := firstTokenAmount + (secondTokenAmount * course)
-				volume += amount
-
-			} else if typeDataSecondToken["token_label"] == config.BaseToken {
-				if firstTokenAmount > 0 && secondTokenAmount > 0 {
-					course = secondTokenAmount / firstTokenAmount
-				}
-
-				amount := (firstTokenAmount * course) + secondTokenAmount
-				volume += amount
-			}
-
-		}
-
-		info["timestamp"] = apparel.TimestampUnix()
-		info["price"] = price
-		info["tvl"] = tvl
-		info["volume"] = volume
-		tokens[token.Label] = info
-	}
-
-	jsonString, err := json.Marshal(tokens)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("error 5: %v", err))
-	}
-
-	return jsonString, nil
-}
-
-func getInterfaceData(typeData interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-	typeDataJson, err := json.Marshal(typeData)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("error 1: %v", err))
-	}
-	err = json.Unmarshal(typeDataJson, &result)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("error 2: %v", err))
-	}
-	return result, nil
-}
-
 func GetConfig(scAddress string) map[string]interface{} {
 	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
 	return scAddressConfig.GetData()
 }
 
-// function for get pool of holder
 func GetScHolder(scAddress, uwAddress string) (interface{}, error) {
 	scAddressHoldersJson := HolderDB.Get(scAddress).Value
-	var scAddressHolders []Holder
+	var scAddressHolders Holders
 	if scAddressHoldersJson != "" {
 		err := json.Unmarshal([]byte(scAddressHoldersJson), &scAddressHolders)
 		if err != nil {
@@ -276,7 +144,7 @@ func GetScPool(scAddress string) (interface{}, error) {
 
 func GetScHolders(scAddress string) (interface{}, error) {
 	scAddressHoldersJson := HolderDB.Get(scAddress).Value
-	var scAddressHolders []Holder
+	var scAddressHolders Holders
 	if scAddressHoldersJson != "" {
 		err := json.Unmarshal([]byte(scAddressHoldersJson), &scAddressHolders)
 		if err != nil {
@@ -287,7 +155,6 @@ func GetScHolders(scAddress string) (interface{}, error) {
 	return scAddressHolders, nil
 }
 
-// validate
 func ValidateAdd(scAddress, uwAddress string, amount float64, tokenLabel string) int64 {
 	if !crypt.IsAddressSmartContract(scAddress) {
 		return 511
@@ -406,7 +273,7 @@ func ValidateGetLiq(scAddress, uwAddress, tokenLabel string) int64 {
 	scAddressHoldersJson := HolderDB.Get(scAddress).Value
 	var (
 		scAddressPool    Pool
-		scAddressHolders []Holder
+		scAddressHolders Holders
 	)
 	if scAddressPoolJson != "" {
 		err := json.Unmarshal([]byte(scAddressPoolJson), &scAddressPool)
@@ -435,13 +302,11 @@ func ValidateGetLiq(scAddress, uwAddress, tokenLabel string) int64 {
 				if i.Pool.Liq.Amount <= 0 && i.Pool.SecondToken.Amount != 0 {
 					return 539
 				}
-
 				break
 			case token.Label:
 				if i.Pool.Liq.Amount <= 0 && i.Pool.FirstToken.Amount != 0 {
 					return 5310
 				}
-
 				break
 			default:
 				return 5311
@@ -484,7 +349,7 @@ func ValidateGetCom(scAddress, uwAddress, tokenLabel string) int64 {
 	scAddressHoldersJson := HolderDB.Get(scAddress).Value
 	var (
 		scAddressPool    Pool
-		scAddressHolders []Holder
+		scAddressHolders Holders
 	)
 	if scAddressPoolJson != "" {
 		err := json.Unmarshal([]byte(scAddressPoolJson), &scAddressPool)
@@ -514,13 +379,11 @@ func ValidateGetCom(scAddress, uwAddress, tokenLabel string) int64 {
 				if i.Pool.FirstToken.Commission <= 0 {
 					return 549
 				}
-
 				break
 			case token.Label:
 				if i.Pool.SecondToken.Commission <= 0 {
 					return 5410
 				}
-
 				break
 			default:
 				return 5411

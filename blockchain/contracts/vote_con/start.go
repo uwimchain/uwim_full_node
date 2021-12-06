@@ -85,17 +85,17 @@ func start(title, description, txHash, starterAddress string, answerOptions []An
 		answerOptions[idx].PossibleAnswerNonce = strconv.FormatInt(apparel.GetNonce(strconv.FormatInt(timestamp, 10)), 10)
 	}
 
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	vote := Vote{
-		Nonce: strconv.FormatInt(apparel.GetNonce(strconv.FormatInt(timestamp, 10)), 10),
-		StartTimestamp: timestamp,
+		Nonce:          apparel.GetNonce(timestamp),
+		StartTimestamp: contracts.String(timestamp),
 		Title:          title,
 		Description:    description,
 		AnswerOptions:  answerOptions,
 		Answers:        nil,
 		EndBlockHeight: endBlockHeight,
-		EndTimestamp:   0,
-		HardTimestamp:  0,
+		EndTimestamp:   "",
+		HardTimestamp:  "",
 	}
 
 	jsonVote, err := json.Marshal(vote)
@@ -109,6 +109,6 @@ func start(title, description, txHash, starterAddress string, answerOptions []An
 	}
 
 	VoteMemory = append(VoteMemory, vote)
-	VoteDB.Put(vote.Nonce, string(jsonVote))
+	VoteDB.Put(strconv.FormatInt(vote.Nonce, 10), string(jsonVote))
 	return nil
 }

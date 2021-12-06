@@ -6,6 +6,7 @@ import (
 	"log"
 	"node/apparel"
 	"node/blockchain/contracts"
+	"strconv"
 )
 
 type FillConfigArgs struct {
@@ -44,7 +45,7 @@ func fillConfig(scAddress string, conversion, maxBuy float64, changes bool, txHa
 
 	log.Println("GG", changes)
 
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	if err := contracts.AddEvent(scAddress, *contracts.NewEvent("Fill config", timestamp, blockHeight, txHash, "", nil), EventDB, ConfigDB); err != nil {
 		return err
 	}

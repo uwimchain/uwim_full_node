@@ -180,14 +180,14 @@ func validateTransactionType1(t deep_actions.Tx) error {
 		break
 	case "vote_contract_hard_stop_transaction":
 		if validateHardStop := vote_con.ValidateHardStop(t.From,
-			apparel.ConvertInterfaceToString(commentData["vote_nonce"])); validateHardStop != 0 {
+			apparel.ConvertInterfaceToInt64(commentData["vote_nonce"])); validateHardStop != 0 {
 			return errors.New(fmt.Sprintf("error for validate vote contract hard stop transaction 2: %v",
 				validateHardStop))
 		}
 
 		break
 	case "vote_contract_answer_transaction":
-		if validateAnswer := vote_con.ValidateAnswer(t.From, apparel.ConvertInterfaceToString(commentData["vote_nonce"]),
+		if validateAnswer := vote_con.ValidateAnswer(t.From, apparel.ConvertInterfaceToInt64(commentData["vote_nonce"]),
 			apparel.ConvertInterfaceToString(commentData["possible_answer_nonce"])); validateAnswer != 0 {
 			return errors.New(fmt.Sprintf("error for validate vote contract answer transaction 2: %v",
 				validateAnswer))
@@ -256,6 +256,11 @@ func validateTransactionType1(t deep_actions.Tx) error {
 		break
 	case "default_contract_set_price_transaction":
 		if err := default_con.ValidateSetPrice(apparel.ConvertInterfaceToInt64(commentData["id"]), t.From, t.To, t.TokenLabel); err != 0 {
+			return errors.New(fmt.Sprintf("error for validate default contract buy transaction 1: %v", err))
+		}
+		break
+	case "default_contract_fill_config_transaction":
+		if err := default_con.ValidateFillConfig(t.From, t.To, apparel.ConvertInterfaceToFloat64(commentData["comission"]), t.Amount, t.TokenLabel); err != 0 {
 			return errors.New(fmt.Sprintf("error for validate default contract buy transaction 1: %v", err))
 		}
 		break

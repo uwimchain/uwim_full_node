@@ -8,9 +8,9 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
+	"strconv"
 )
 
-// function for add token pair to liquidity pool
 func Add(args *TradeArgs) error {
 	err := add(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)
 	if err != nil {
@@ -28,7 +28,7 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	scAddressPoolJson := PoolDB.Get(scAddress).Value
 	scAddressHoldersJson := HolderDB.Get(scAddress).Value
 
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	token := contracts.GetTokenInfoForScAddress(scAddress)
 	if token.Id == 0 {
@@ -74,43 +74,43 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	case config.BaseToken:
 		if holder.Pool.SecondToken.Amount == 0 {
 			holder.Pool.FirstToken.Amount += amount
-			holder.Pool.FirstToken.UpdateTime = timestamp
+			holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 		} else {
 
 			holder.Pool.FirstToken.Amount += amount
 			var liq float64 = 0
 			if course == 0 {
 				scAddressPool.FirstToken.Amount += holder.Pool.FirstToken.Amount
-				scAddressPool.FirstToken.UpdateTime = timestamp
+				scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 				scAddressPool.SecondToken.Amount += holder.Pool.SecondToken.Amount
-				scAddressPool.SecondToken.UpdateTime = timestamp
+				scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 				liq = holder.Pool.FirstToken.Amount * holder.Pool.SecondToken.Amount
 
 				holder.Pool.FirstToken.Amount = 0
-				holder.Pool.FirstToken.UpdateTime = timestamp
+				holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 				holder.Pool.SecondToken.Amount = 0
-				holder.Pool.SecondToken.UpdateTime = timestamp
+				holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 			} else {
 
 				if holder.Pool.FirstToken.Amount > holder.Pool.SecondToken.Amount*course {
 					var t1 float64 = holder.Pool.SecondToken.Amount * course
 
 					scAddressPool.FirstToken.Amount += t1
-					scAddressPool.FirstToken.UpdateTime = timestamp
+					scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					scAddressPool.SecondToken.Amount += holder.Pool.SecondToken.Amount
-					scAddressPool.SecondToken.UpdateTime = timestamp
+					scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 					liq = t1 * holder.Pool.SecondToken.Amount
 
 					holder.Pool.FirstToken.Amount -= t1
-					holder.Pool.FirstToken.UpdateTime = timestamp
+					holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					holder.Pool.SecondToken.Amount = 0
-					holder.Pool.SecondToken.UpdateTime = timestamp
+					holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 					if holder.Pool.FirstToken.Amount < 0 {
 						return errors.New("GG 1")
 					}
@@ -118,18 +118,18 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 					var t2 float64 = holder.Pool.FirstToken.Amount / course
 
 					scAddressPool.FirstToken.Amount += holder.Pool.FirstToken.Amount
-					scAddressPool.FirstToken.UpdateTime = timestamp
+					scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					scAddressPool.SecondToken.Amount += t2
-					scAddressPool.SecondToken.UpdateTime = timestamp
+					scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 					liq = holder.Pool.FirstToken.Amount * t2
 
 					holder.Pool.FirstToken.Amount = 0
-					holder.Pool.FirstToken.UpdateTime = timestamp
+					holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					holder.Pool.SecondToken.Amount -= t2
-					holder.Pool.SecondToken.UpdateTime = timestamp
+					holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 					if holder.Pool.SecondToken.Amount < 0 {
 						return errors.New("GG 2")
 					}
@@ -143,45 +143,45 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 	case token.Label:
 		if holder.Pool.FirstToken.Amount == 0 {
 			holder.Pool.SecondToken.Amount += amount
-			holder.Pool.SecondToken.UpdateTime = timestamp
+			holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 		} else {
 			holder.Pool.SecondToken.Amount += amount
-			holder.Pool.SecondToken.UpdateTime = timestamp
+			holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 			var liq float64 = 0
 
 			if course == 0 {
 				scAddressPool.FirstToken.Amount += holder.Pool.FirstToken.Amount
-				scAddressPool.FirstToken.UpdateTime = timestamp
+				scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 				scAddressPool.SecondToken.Amount += holder.Pool.SecondToken.Amount
-				scAddressPool.SecondToken.UpdateTime = timestamp
+				scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 				liq = holder.Pool.FirstToken.Amount * holder.Pool.SecondToken.Amount
 
 				holder.Pool.FirstToken.Amount = 0
-				holder.Pool.FirstToken.UpdateTime = timestamp
+				holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 				holder.Pool.SecondToken.Amount = 0
-				holder.Pool.SecondToken.UpdateTime = timestamp
+				holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 			} else {
 				if holder.Pool.FirstToken.Amount > holder.Pool.SecondToken.Amount*course {
 					var t1 float64 = holder.Pool.SecondToken.Amount * course
 
 					scAddressPool.FirstToken.Amount += t1
-					scAddressPool.FirstToken.UpdateTime = timestamp
+					scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					scAddressPool.SecondToken.Amount += holder.Pool.SecondToken.Amount
 
-					scAddressPool.SecondToken.UpdateTime = timestamp
+					scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 					liq = t1 * holder.Pool.SecondToken.Amount
 
 					holder.Pool.FirstToken.Amount -= t1
-					holder.Pool.FirstToken.UpdateTime = timestamp
+					holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					holder.Pool.SecondToken.Amount = 0
-					holder.Pool.SecondToken.UpdateTime = timestamp
+					holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 					if holder.Pool.FirstToken.Amount < 0 {
 						return errors.New("GG 1")
 					}
@@ -189,18 +189,18 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 					var t2 float64 = holder.Pool.FirstToken.Amount / course
 
 					scAddressPool.FirstToken.Amount += holder.Pool.FirstToken.Amount
-					scAddressPool.FirstToken.UpdateTime = timestamp
+					scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					scAddressPool.SecondToken.Amount += t2
-					scAddressPool.SecondToken.UpdateTime = timestamp
+					scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 
 					liq = holder.Pool.FirstToken.Amount * t2
 
 					holder.Pool.FirstToken.Amount = 0
-					holder.Pool.FirstToken.UpdateTime = timestamp
+					holder.Pool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 					holder.Pool.SecondToken.Amount -= t2
-					holder.Pool.SecondToken.UpdateTime = timestamp
+					holder.Pool.SecondToken.UpdateTime = contracts.String(timestamp)
 					if holder.Pool.SecondToken.Amount < 0 {
 						return errors.New("GG 2")
 					}
@@ -208,10 +208,10 @@ func add(scAddress, uwAddress, tokenLabel, txHash string, amount float64, blockH
 			}
 
 			scAddressPool.Liq.Amount += liq
-			scAddressPool.Liq.UpdateTime = timestamp
+			scAddressPool.Liq.UpdateTime = contracts.String(timestamp)
 
 			holder.Pool.Liq.Amount += liq
-			scAddressPool.Liq.UpdateTime = timestamp
+			scAddressPool.Liq.UpdateTime = contracts.String(timestamp)
 		}
 		break
 	default:

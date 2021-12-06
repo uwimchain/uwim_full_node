@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts"
+	"strconv"
 )
 
 type FillConfigArgs struct {
@@ -41,7 +42,8 @@ func fillConfig(scAddress string, conversion, salesValue float64, partners Partn
 	configData["sales_value"] = salesValue
 	configData["changes"] = changes
 
-	timestamp := apparel.TimestampUnix()
+	//timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	if err := contracts.AddEvent(scAddress, *contracts.NewEvent("Fill config", timestamp, blockHeight, txHash, "", nil), EventDB, ConfigDB); err != nil {
 		return err
 	}

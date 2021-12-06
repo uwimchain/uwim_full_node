@@ -16,15 +16,33 @@ import (
 )
 
 var (
-	NewComment         = deep_actions.NewComment
-	NewBalance         = deep_actions.NewBalance
-	NewBuyTokenSign    = deep_actions.NewBuyTokenSign
 	GetBalanceForToken = storage.GetBalanceForToken
 	GetBalance         = storage.GetBalance
 	AddTokenEmission   = storage.AddTokenEmission
 	GetToken           = deep_actions.GetToken
 	GetAddress         = deep_actions.GetAddress
 )
+
+type String string
+
+func (s *String) UnmarshalJSON(b []byte) error {
+	var item interface{}
+	if err := json.Unmarshal(b, &item); err != nil {
+		return err
+	}
+
+	switch v := item.(type) {
+	case int64:
+		*s = String(strconv.FormatInt(v, 10))
+		break
+	case float64:
+		*s = String(strconv.Itoa(int(v)))
+		break
+	case string:
+		*s = String(v)
+	}
+	return nil
+}
 
 type Config struct {
 	LastEventHash string      `json:"last_event_hash"`
@@ -59,6 +77,7 @@ func (c *Config) Update(configDb *Database, scAddress string) {
 
 type Balance deep_actions.Balance
 type Tx deep_actions.Tx
+type Txs deep_actions.Txs
 
 func GetTokenInfoForScAddress(scAddress string) *deep_actions.Token {
 	uwAddress := crypt.AddressFromAnotherAddress(metrics.AddressPrefix, scAddress)
@@ -92,36 +111,31 @@ func RefundTransaction(scAddress string, uwAddress string, amount float64, token
 		return errors.New(fmt.Sprintf("error 3: samrt contract balance haven`t token %s", tokenLabel))
 	}
 
-	txCommentSign := NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-
-	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-
-	SendNewScTx(timestamp, config.BlockHeight, scAddress, uwAddress, amount, tokenLabel, "refund_transaction", txCommentSign)
+	SendNewScTx(scAddress, uwAddress, amount, tokenLabel, "refund_transaction")
 
 	return nil
 }
 
-func SendNewScTx(timestampD string, height int64, from, to string, amount float64, tokenLabel, commentTitle string,
-	commentData interface{}) {
-	commentDataJson, _ := json.Marshal(commentData)
+func SendNewScTx(from, to string, amount float64, tokenLabel, commentTitle string) {
+	sign, _ := json.Marshal(*deep_actions.NewBuyTokenSign(config.NodeNdAddress))
+
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	tx := deep_actions.Tx{
 		Type:       5,
-		Nonce:      apparel.GetNonce(timestampD),
+		Nonce:      apparel.GetNonce(timestamp),
 		HashTx:     "",
-		Height:     height,
+		Height:     config.BlockHeight,
 		From:       from,
 		To:         to,
 		Amount:     amount,
 		TokenLabel: tokenLabel,
-		Timestamp:  timestampD,
+		Timestamp:  timestamp,
 		Tax:        0,
 		Signature:  nil,
 		Comment: deep_actions.Comment{
 			Title: commentTitle,
-			Data:  commentDataJson,
+			Data:  sign,
 		},
 	}
 

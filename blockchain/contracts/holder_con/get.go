@@ -76,20 +76,16 @@ func get(recipientAddress, txHash string, blockHeight int64) error {
 		return errors.New("error 6: Holder smart-contract address has low balance for send transactions")
 	}
 
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	err := contracts.AddEvent(config.HolderScAddress, *contracts.NewEvent("Get", timestamp, config.BlockHeight,
 		txHash, recipientAddress, nil), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 7: %v", err))
 	}
 
-
 	holders.Update(recipientAddress)
 
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-	contracts.SendNewScTx(strconv.FormatInt(timestamp, 10), config.BlockHeight, config.HolderScAddress, recipientAddress, getAmount, config.BaseToken, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(config.HolderScAddress, recipientAddress, getAmount, config.BaseToken, "default_transaction")
 
 	return nil
 }

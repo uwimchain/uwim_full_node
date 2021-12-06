@@ -2,9 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
+	"node/api/api_error"
 	"node/blockchain/contracts/business_token_con"
+	"node/blockchain/contracts/default_con"
 	"node/blockchain/contracts/delegate_con"
 	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/holder_con"
@@ -15,36 +15,15 @@ import (
 	"node/metrics"
 	"node/storage"
 	"node/storage/deep_actions"
-	"strconv"
 )
 
 type BalanceArgs struct {
-	Address string `json:"address"`
-}
-
-type Partner struct {
-	Address string                 `json:"address"`
-	Percent float64                `json:"percent"`
-	Balance []deep_actions.Balance `json:"balance"`
-}
-
-type BalanceInfo struct {
-	Address           string                 `json:"address"`
-	Balance           []deep_actions.Balance `json:"balance"`
-	Transactions      []deep_actions.Tx      `json:"transactions"`
-	Token             deep_actions.Token     `json:"token"`
-	ScKeeping         bool                   `json:"sc_keeping"`
-	Name              string                 `json:"name"`
-	ScBalance         []deep_actions.Balance `json:"sc_balance"`
-	DelegateBalance   deep_actions.Balance   `json:"delegate_balance"`
-	Percents          interface{}            `json:"percents"`
-	TokenContractData interface{}            `json:"token_contract_data"`
-	Holder            interface{}            `json:"holder"`
+	Address           string `json:"address"`
 }
 
 func (api *Api) Balance(args *BalanceArgs, result *string) error {
 	if args.Address == "" {
-		return errors.New(strconv.Itoa(1))
+		return api_error.NewApiError(1, "Empty address").AddError()
 	}
 
 	address := deep_actions.GetAddress(args.Address)
@@ -68,21 +47,16 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 			tokenContractData["config"] = business_token_con.GetConfig(scAddress)
 			break
 		case 5:
-			scAddressHolders, err := trade_token_con.GetScHolders(scAddress)
-			if err != nil {
-				log.Println("Api balance error 3: ", err)
-				break
-			}
-			scAddressPool, err := trade_token_con.GetScPool(scAddress)
-			if err != nil {
-				log.Println("Api balance error 4: ", err)
-				break
-			}
+			scAddressHolders, _ := trade_token_con.GetScHolders(scAddress)
+
+			scAddressPool, _ := trade_token_con.GetScPool(scAddress)
 
 			tokenContractData["holders"] = scAddressHolders
 			tokenContractData["pool"] = scAddressPool
 			tokenContractData["config"] = trade_token_con.GetConfig(scAddress)
 			break
+		case 7:
+			tokenContractData["config"]=default_con.GetConfig(scAddress)
 		}
 	}
 
@@ -95,12 +69,8 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 				switch t.Standard {
 				case 0:
 					if i.TokenLabel != token.Label {
-						confirmation, addressPercent, err := my_token_con.GetAddressPercent(tokenScAddress,
+						confirmation, addressPercent, _ := my_token_con.GetAddressPercent(tokenScAddress,
 							address.Address, t.Label, t.Emission, i.Amount)
-						if err != nil {
-							log.Println("Api Balance error 6: ", err)
-							break
-						}
 
 						percent := make(map[string]interface{})
 						percent["token_label"] = i.TokenLabel
@@ -125,16 +95,9 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 					}
 					break
 				case 5:
-					holderPool, err := trade_token_con.GetScHolder(tokenScAddress, address.Address)
-					if err != nil {
-						log.Println("Api balance error 8: ", err)
-						break
-					}
-					scAddressPool, err := trade_token_con.GetScPool(tokenScAddress)
-					if err != nil {
-						log.Println("Api balance error 9: ", err)
-						break
-					}
+					holderPool, _ := trade_token_con.GetScHolder(tokenScAddress, address.Address)
+
+					scAddressPool, _ := trade_token_con.GetScPool(tokenScAddress)
 
 					percent := make(map[string]interface{})
 					percent["token_label"] = i.TokenLabel
@@ -148,26 +111,48 @@ func (api *Api) Balance(args *BalanceArgs, result *string) error {
 		}
 	}
 
-	jsonString, err := json.Marshal(BalanceInfo{
-		Address:      args.Address,
-		Balance:      address.Balance,
-		Transactions: address.GetTxs(),
-		Token:        *token,
-		ScKeeping:    address.ScKeeping,
-		Name:         address.Name,
-		ScBalance:    scBalance,
-		DelegateBalance: deep_actions.Balance{
-			TokenLabel: config.BaseToken,
-			Amount:     delegateBalance.Balance,
-			UpdateTime: strconv.FormatInt(delegateBalance.UpdateTime, 10),
-		},
-		Percents:          percents,
-		TokenContractData: tokenContractData,
-		Holder:            holder_con.GetHolder(args.Address),
-	})
-	if err != nil {
-		log.Println("Api Balance error 8", err)
+	memoryTransactions := deep_actions.Txs{}
+	if storage.TransactionsMemory != nil {
+		for _, i := range storage.TransactionsMemory {
+			if i.From == args.Address || i.To == args.Address {
+				memoryTransactions = append(memoryTransactions, i)
+			}
+		}
 	}
+
+	holder := holder_con.GetHolder(args.Address)
+	holderGet := false
+	if holder != nil {
+		for _, i := range holder {
+			if i.GetBlockHeight <= config.BlockHeight {
+				holderGet = true
+				break
+			}
+		}
+	}
+
+	info := make(map[string]interface{})
+	info["address"] = args.Address
+	info["sc_address"] = crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, args.Address)
+	info["nd_address"] = crypt.AddressFromAnotherAddress(metrics.NodePrefix, args.Address)
+	info["balance"] = address.Balance
+	info["transactions"] = address.GetTxs()
+	info["token"] = token
+	info["sc_keeping"] = address.ScKeeping
+	info["name"] = address.Name
+	info["sc_balance"] = scBalance
+	info["delegate_balance"] = deep_actions.Balance{
+		TokenLabel: config.DelegateToken,
+		Amount:     delegateBalance.Balance,
+		UpdateTime: string(delegateBalance.UpdateTime),
+	}
+	info["percents"] = percents
+	info["token_contract_data"] = tokenContractData
+	info["holder"] = holder
+	info["holder_get"] = holderGet
+	info["memory_transactions"] = memoryTransactions
+
+	jsonString, _ := json.Marshal(info)
 
 	*result = string(jsonString)
 	return nil

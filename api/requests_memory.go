@@ -43,11 +43,9 @@ func requestInRequestsMemory(header http.Header, result string) bool {
 
 		return false
 	}
-
 }
 
 func searchRequestInRequestsMemory(request string) bool {
-
 	var requestCount int64 = 0
 	for i := range RequestsMemory {
 		if RequestsMemory[i].Hash == request {

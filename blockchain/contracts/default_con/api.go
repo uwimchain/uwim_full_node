@@ -15,6 +15,11 @@ func GetAllTokens() interface{} {
 	return GetNftAllTokensEls()
 }
 
+func GetConfig(scAddress string) map[string]interface{} {
+	scAddressConfig := contracts.GetConfig(ConfigDB, scAddress)
+	return scAddressConfig.GetData()
+}
+
 func ValidateCreate(name, owner, recipient, tokenLabel string, price, amount float64, data string) int {
 	if name == "" {
 		return 1011
@@ -55,9 +60,9 @@ func ValidateCreate(name, owner, recipient, tokenLabel string, price, amount flo
 		return 1019
 	}
 
-	//if len(data) > config.NftTokenElMaxDataFieldLen {
-	//	return 10110
-	//}
+	if len(data) > config.NftTokenElMaxDataFieldLen {
+		return 10110
+	}
 
 	return 0
 }
@@ -127,6 +132,40 @@ func ValidateSetPrice(tokenElId int64, sender, recipient, tokenLabel string) int
 
 	if tokenEl.Owner != sender {
 		return 1036
+	}
+
+	return 0
+}
+
+func ValidateFillConfig(senderAddress, recipientAddress string, commission, amount float64, tokenLabel string) int {
+	if recipientAddress != config.MainNodeAddress {
+		return 1041
+	}
+
+	if !crypt.IsAddressUw(senderAddress) {
+		return 1042
+	}
+
+	if amount != config.FillTokenConfigCost {
+		return 1043
+	}
+
+	if tokenLabel != config.BaseToken {
+		return 1044
+	}
+
+	if commission < 0 || commission > 2 {
+		return 1045
+	}
+
+	address := contracts.GetAddress(senderAddress)
+	token := address.GetToken()
+	if token.Id == 0 {
+		return 1046
+	}
+
+	if token.Standard != 7 {
+		return 1047
 	}
 
 	return 0

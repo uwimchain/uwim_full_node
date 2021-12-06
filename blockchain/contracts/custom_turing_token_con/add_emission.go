@@ -31,14 +31,13 @@ func addEmission(addEmissionAmount float64, txHash string, blockHeight int64) er
 		return err
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	if err := contracts.AddEvent(ScAddress, *contracts.NewEvent("De-delegate another address", timestamp, blockHeight, txHash, UwAddress, ""), EventDB, ConfigDB); err != nil {
 		return err
 	}
 
 	address := contracts.GetAddress(ScAddress)
-	address.UpdateBalance(ScAddress, *contracts.NewBalance(TokenLabel, addEmissionAmount, timestampD), true)
+	address.UpdateBalance(ScAddress, addEmissionAmount, TokenLabel, timestamp, true)
 	return nil
 }

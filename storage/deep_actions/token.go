@@ -39,6 +39,8 @@ type Token struct {
 	CardHistory         []History `json:"card_history"`
 }
 
+type Tokens []Token
+
 type History struct {
 	Id        int64  `json:"id"`
 	Timestamp string `json:"timestamp"`
@@ -216,9 +218,8 @@ func (t *Token) Create() {
 
 	leveldb.ConfigDB.Put("token_id", strconv.FormatInt(t.Id, 10))
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
-	address.UpdateBalance(t.Proposer, *NewBalance(t.Label, t.Emission, timestampD), true)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
+	address.UpdateBalance(t.Proposer, t.Emission, t.Label, timestamp, true)
 }
 
 func (t *Token) SetSignature(secretKey []byte) {
@@ -267,7 +268,6 @@ func (t *Token) AddTokenEmission(addEmissionAmount float64) {
 }
 
 func (t *Token) FillTokenCard(newCardData []byte, timestamp string, txHash string) {
-	//log.Println(string(newCardData))
 	t.Card = string(newCardData)
 	if t.CardHistory != nil {
 		t.CardHistory = append(t.CardHistory, History{
@@ -343,18 +343,17 @@ func CheckToken(tokenLabel string) bool {
 	return leveldb.TokenDb.Has(tokenLabel)
 }
 
-func GetAllTokens() []Token {
+func GetAllTokens() Tokens {
 	rows := leveldb.TokenDb.GetAll("")
 
-	var tokens []Token
+	var tokens Tokens
 
 	if rows != nil {
 		for _, row := range rows {
-			token := new(Token)
+			token := Token{}
+			_ = json.Unmarshal([]byte(row.Value), &token)
 
-			_ = json.Unmarshal([]byte(row.Value), token)
-
-			tokens = append(tokens, *token)
+			tokens = append(tokens, token)
 		}
 	}
 
@@ -364,7 +363,7 @@ func GetAllTokens() []Token {
 func autoincrement() int64 {
 	lastId := leveldb.ConfigDB.Get("token_id").Value
 	if lastId != "" {
-		result := apparel.ParseInt64(lastId)
+		result, _ := strconv.ParseInt(lastId, 10, 64)
 		return result + 1
 	} else {
 		return 1

@@ -7,7 +7,6 @@ import (
 	"node/apparel"
 	"node/blockchain/contracts"
 	"node/config"
-	"node/memory"
 	"strconv"
 )
 
@@ -37,8 +36,7 @@ func DeDelegate(args *DeDelegateArgs) error {
 func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) error {
 	holderJson := HolderDB.Get(uwAddress).Value
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	holder := Holder{}
 
@@ -49,87 +47,34 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 	_ = json.Unmarshal([]byte(holderJson), &holder)
 
 	holder.Amount -= amount
-	holder.UpdateTime = timestampD
+	holder.UpdateTime = timestamp
 
 	var txs []contracts.Tx
 
 	if uwAddress == UwAddress {
 		txs = append(txs, contracts.Tx{
-			Type:       5,
-			Nonce:      apparel.GetNonce(timestampD),
-			HashTx:     "",
-			Height:     blockHeight,
-			From:       ScAddress,
 			To:         uwAddress,
 			Amount:     amount,
 			TokenLabel: TokenLabel,
-			Timestamp:  timestampD,
-			Tax:        0,
-			Signature:  nil,
-			Comment: *contracts.NewComment(
-				"default_transaction",
-				nil,
-			),
 		})
 	} else {
-		//amount1 := amount - ((100-ScAddressPercent)*100)/amount
 		amount1 := amount - (amount * (ScAddressPercent / 100))
 		amount2 := amount - amount1
 
 		txs = append(txs, contracts.Tx{
-			Type:       5,
-			Nonce:      apparel.GetNonce(timestampD),
-			HashTx:     "",
-			Height:     blockHeight,
-			From:       ScAddress,
 			To:         uwAddress,
 			Amount:     amount1,
 			TokenLabel: TokenLabel,
-			Timestamp:  timestampD,
-			Tax:        0,
-			Signature:  nil,
-			Comment: *contracts.NewComment(
-				"default_transaction",
-				nil,
-			),
 		}, contracts.Tx{
-			Type:       5,
-			Nonce:      apparel.GetNonce(timestampD),
-			HashTx:     "",
-			Height:     blockHeight,
-			From:       ScAddress,
 			To:         UwAddress,
 			Amount:     amount2,
 			TokenLabel: TokenLabel,
-			Timestamp:  timestampD,
-			Tax:        0,
-			Signature:  nil,
-			Comment: *contracts.NewComment(
-				"default_transaction",
-				nil,
-			),
 		})
 	}
 
 	if txs == nil {
 		return errors.New("De-delegate error 2: empty transactions list")
 	}
-
-	/*for i := range txs {
-		jsonString, _ := json.Marshal(contracts.Tx{
-			Type:       txs[i].Type,
-			Nonce:      txs[i].Nonce,
-			From:       txs[i].From,
-			To:         txs[i].To,
-			Amount:     txs[i].Amount,
-			TokenLabel: txs[i].TokenLabel,
-			Comment:    txs[i].Comment,
-		})
-		txs[i].Signature = crypt.SignMessageWithSecretKey(config.NodeSecretKey, jsonString)
-
-		jsonString, _ = json.Marshal(txs[i])
-		txs[i].HashTx = crypt.GetHash(jsonString)
-	}*/
 
 	err := contracts.AddEvent(ScAddress, *contracts.NewEvent("De-delegate", timestamp, blockHeight, txHash, uwAddress, ""), EventDB, ConfigDB)
 	if err != nil {
@@ -142,13 +87,8 @@ func deDelegate(uwAddress, txHash string, amount float64, blockHeight int64) err
 	}
 	HolderDB.Put(uwAddress, string(jsonHolder))
 
-	if memory.IsNodeProposer() {
-		for _, i := range txs {
-			txCommentSign:=contracts.NewBuyTokenSign(
-				config.NodeNdAddress,
-			)
-			contracts.SendNewScTx(i.Timestamp, i.Height, i.From, i.To, i.Amount, i.TokenLabel, i.Comment.Title, txCommentSign)
-		}
+	for _, i := range txs {
+		contracts.SendNewScTx(config.DelegateScAddress, i.To, i.Amount, i.TokenLabel, "default_transaction")
 	}
 
 	return nil

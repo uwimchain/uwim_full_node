@@ -92,13 +92,10 @@ func GetNftTokenElsForParentLabel(label string) NftTokenEls {
 }
 
 func (tEl *NftTokenEl) Create() {
-	// set autoincrement unique Id
 	tEl.setAutoincrement()
 
-	// set parent label
 	tEl.setParentLabel()
 
-	// encode nft token element data to base64
 	tEl.Data = base64.StdEncoding.EncodeToString([]byte(tEl.Data))
 
 	jsonString, _ := json.Marshal(tEl)

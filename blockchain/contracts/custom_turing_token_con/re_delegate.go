@@ -6,7 +6,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts"
-	"node/config"
 	"node/memory"
 	"strconv"
 )
@@ -39,8 +38,7 @@ func reDelegate(senderAddress, recipientAddress, txHash string, amount float64, 
 	senderJson := HolderDB.Get(senderAddress).Value
 	recipientJson := HolderDB.Get(recipientAddress).Value
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	sender := Holder{}
 	recipient := Holder{}
@@ -61,15 +59,15 @@ func reDelegate(senderAddress, recipientAddress, txHash string, amount float64, 
 	if recipientJson != "" {
 		_ = json.Unmarshal([]byte(recipientJson), &recipient)
 		recipient.Amount += amount1
-		recipient.UpdateTime = timestampD
+		recipient.UpdateTime = timestamp
 	} else {
 		recipient.Address = recipientAddress
 		recipient.Amount = amount1
-		recipient.UpdateTime = timestampD
+		recipient.UpdateTime = timestamp
 	}
 
 	sender.Amount -= amount
-	sender.UpdateTime = timestampD
+	sender.UpdateTime = timestamp
 
 	err := contracts.AddEvent(ScAddress, *contracts.NewEvent("De-delegate another address", timestamp, blockHeight, txHash, senderAddress, ""), EventDB, ConfigDB)
 	if err != nil {
@@ -84,11 +82,7 @@ func reDelegate(senderAddress, recipientAddress, txHash string, amount float64, 
 
 	if memory.IsNodeProposer() {
 		if senderAddress != UwAddress {
-			txCommentSign:=contracts.NewBuyTokenSign(
-				config.NodeNdAddress,
-			)
-			
-			contracts.SendNewScTx(timestampD, config.BlockHeight, ScAddress, UwAddress, amount2, TokenLabel, "default_transaction", txCommentSign)
+			contracts.SendNewScTx(ScAddress, UwAddress, amount2, TokenLabel, "default_transaction")
 		}
 	}
 

@@ -17,46 +17,34 @@ import (
 	"strconv"
 )
 
-var (
-	c    deep_actions.Chain
-	conf deep_actions.Config
-)
-
 func Init() {
 	BlockHeightUpdate()
 }
 
 func AddBlock() {
-
-	block := deep_actions.Chain{}
-
-	for idx := range BlockMemory.Body {
-		jsonForHash, _ := json.Marshal(BlockMemory.Body[idx])
-		BlockMemory.Body[idx].HashTx = crypt.GetHash(jsonForHash)
-		block.Txs = append(block.Txs, BlockMemory.Body[idx])
+	votes := getBlockVotes()
+	chainHeader := deep_actions.Header{
+		PrevHash:          GetPrevBlockHash(),
+		TxCounter:         int64(len(BlockMemory.Body)),
+		Timestamp:         BlockMemory.Timestamp,
+		ProposerSignature: BlockMemory.ProposerSignature,
+		Proposer:          BlockMemory.Proposer,
+		Votes:             votes,
+		VoteCounter:       int64(len(votes)),
 	}
 
-	votes := getBlockVotes()
-	block.Header = *deep_actions.NewHeader(
-		GetPrevBlockHash(),
-		int64(len(block.Txs)),
-		BlockMemory.Timestamp,
-		BlockMemory.ProposerSignature,
-		BlockMemory.Proposer,
-		votes,
-		int64(len(votes)),
-	)
+	chain := deep_actions.NewChain(chainHeader, BlockMemory.Body)
+	chain.SetHash()
 
-	err := c.NewChain(block)
-	if err != nil {
+	if err := chain.Update(); err != nil {
 		log.Println(fmt.Sprintf("Storage core addBlock error 1: %v", err))
 		return
 	}
-	proposersPubKey, _ := crypt.PublicKeyFromAddress(block.Header.Proposer)
+
+	proposersPubKey, _ := crypt.PublicKeyFromAddress(chain.Header.Proposer)
 	proposerAddress := crypt.AddressFromPublicKey(metrics.AddressPrefix, proposersPubKey)
 
-	for _, t := range block.Txs {
-
+	for _, t := range chain.Txs {
 		if CheckTx(t.HashTx) {
 			log.Println("Storage core add block new tx error: this tx already exists")
 
@@ -108,155 +96,19 @@ func AddBlock() {
 	deep_actions.ConfigUpdate("block_height", strconv.FormatInt(config.BlockHeight+1, 10))
 }
 
-//func ConfigUpdate(parameter string, value string) {
-//	conf.ConfigUpdate(parameter, value)
-//}
-
-/*func ZeroBlock() {
-	if memory.IsMainNode() && config.BlockHeight == 0 {
-		if !CheckBlock(0) {
-			var body []deep_actions.Tx
-
-			timestampD := strconv.FormatInt(apparel.TimestampUnix(), 10)
-			GenesisTransaction := deep_actions.NewTx(
-				1,
-				apparel.GetNonce(timestampD),
-				"",
-				0,
-				"",
-				config.GenesisAddress,
-				1000000000,
-				"uwm",
-				timestampD,
-				0,
-				nil,
-				*deep_actions.NewComment(
-					"DefaultTransaction",
-					nil,
-				),
-			)
-			jsonForHash, err := json.Marshal(GenesisTransaction)
-			if err != nil {
-				log.Fatal("Zero block genesis transaction error:", err)
-			}
-			GenesisTransaction.HashTx = crypt.GetHash(jsonForHash)
-
-			timestampD = strconv.FormatInt(apparel.TimestampUnix(), 10)
-			MainTransaction := deep_actions.NewTx(
-				1,
-				apparel.GetNonce(timestampD),
-				"",
-				0,
-				config.GenesisAddress,
-				config.NodeNdAddress,
-				326348839,
-				"uwm",
-				timestampD,
-				0,
-				crypt.SignMessageWithSecretKey(
-					config.GenesisSecretKey,
-					[]byte(config.GenesisAddress),
-				),
-				*deep_actions.NewComment(
-					"DefaultTransaction",
-					nil,
-				),
-			)
-			jsonForHash, err = json.Marshal(MainTransaction)
-			if err != nil {
-				log.Fatal("Zero block main transaction error:", err)
-			}
-			MainTransaction.HashTx = crypt.GetHash(jsonForHash)
-
-			timestampD = strconv.FormatInt(apparel.TimestampUnix(), 10)
-			jsonString, err := json.Marshal(deep_actions.NewToken(
-				1,
-				0,
-				"uwm",
-				"UWM",
-				config.GenesisAddress,
-				crypt.SignMessageWithSecretKey(
-					config.GenesisSecretKey,
-					[]byte(config.GenesisAddress),
-				),
-				1000000000,
-				apparel.TimestampUnix(),
-				0,
-			))
-			if err != nil {
-				log.Fatal("Zero block zero token transaction comment error:", err)
-			}
-			ZeroTokenTransaction := deep_actions.NewTx(
-				3,
-				apparel.GetNonce(timestampD),
-				"",
-				0,
-				config.GenesisAddress,
-				config.NodeNdAddress,
-				1,
-				"uwm",
-				timestampD,
-				0,
-				crypt.SignMessageWithSecretKey(
-					config.GenesisSecretKey,
-					[]byte(config.GenesisAddress),
-				),
-				*deep_actions.NewComment(
-					"CreateTokenTransaction",
-					jsonString,
-				),
-			)
-			jsonForHash, err = json.Marshal(ZeroTokenTransaction)
-			if err != nil {
-				log.Fatal("Zero block zero token transaction error:", err)
-			}
-			ZeroTokenTransaction.HashTx = crypt.GetHash(jsonString)
-
-			body = append(body, *GenesisTransaction, *MainTransaction, *ZeroTokenTransaction)
-			BlockMemory = *NewBlock(
-				0,
-				"",
-				strconv.FormatInt(apparel.TimestampUnix(), 10),
-				config.NodeNdAddress,
-				crypt.SignMessageWithSecretKey(
-					config.NodeSecretKey,
-					[]byte(config.NodeNdAddress),
-				),
-				body,
-				nil,
-			)
-
-			AddBlock()
-
-			BlockMemory = Block{}
-
-			log.Println("Zero block was witted")
-		}
-	}
-}*/
-
 func CheckBlock(height int64) bool {
 	return leveldb.ChainDB.Has(strconv.FormatInt(height, 10))
 }
 
-func NewBlocksForStart(blocks []deep_actions.Chain) {
+func NewBlocksForStart(chains deep_actions.Chains) {
 	if !memory.DownloadBlocks {
 		return
 	}
 
-	if err := validateDownloadBlocks(blocks); err != nil {
-		log.Println("Core new blocks for start error:", err)
-		return
-	}
+	for _, chain := range chains {
+		_ = chain.Update()
 
-	for _, block := range blocks {
-		err := c.NewChain(block)
-		if err != nil {
-			log.Println("Core new blocks for start error: ", err)
-			return
-		}
-
-		for _, t := range block.Txs {
+		for _, t := range chain.Txs {
 			NewTx(
 				t.Type,
 				t.Nonce,
@@ -269,7 +121,7 @@ func NewBlocksForStart(blocks []deep_actions.Chain) {
 				t.Timestamp,
 				t.Tax,
 				t.Signature,
-				block.Header.Proposer,
+				chain.Header.Proposer,
 				t.Comment,
 			)
 
@@ -360,16 +212,16 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 	addressProposer := deep_actions.GetAddress(proposer)
 
 	if amount != 0 {
-		addressFrom.UpdateBalance(from, *deep_actions.NewBalance(tokenLabel, amount, timestamp), false)
+		addressFrom.UpdateBalance(from, amount, tokenLabel, timestamp, false)
 
-		addressTo.UpdateBalance(to, *deep_actions.NewBalance(tokenLabel, amount, timestamp), true)
+		addressTo.UpdateBalance(to, amount, tokenLabel, timestamp, true)
 	}
 
 	if tax != 0 {
-		addressFrom.UpdateBalance(from, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), false)
+		addressFrom.UpdateBalance(from, tax, config.BaseToken, timestamp, false)
 
 		if !memory.DownloadBlocks {
-			addressProposer.UpdateBalance(proposer, *deep_actions.NewBalance(config.BaseToken, tax, timestamp), true)
+			addressProposer.UpdateBalance(proposer, tax, config.BaseToken, timestamp, true)
 		}
 	}
 
@@ -394,22 +246,18 @@ func NewTx(transactionType int64, nonce int64, hashTx string, height int64, from
 	leveldb.TxsDB.Put(hashTx, strconv.FormatInt(height, 10))
 }
 
-func validateDownloadBlocks(blocks []deep_actions.Chain) error {
-
-	return nil
-}
-
-func getBlockVotes() []deep_actions.Vote {
-	var result []deep_actions.Vote
+func getBlockVotes() deep_actions.Votes {
+	var result deep_actions.Votes
 	for _, vote := range BlockMemory.Votes {
-		result = append(result, *deep_actions.NewVote(vote.Proposer, vote.Signature, vote.BlockHeight, vote.Vote))
+		result = append(result, deep_actions.Vote{Proposer: vote.Proposer, Signature: vote.Signature,
+			BlockHeight: vote.BlockHeight, Vote: vote.Vote})
 	}
 
 	return result
 }
 
 func GetPrevBlockHash() string {
-	prevChainKey, _ := strconv.ParseInt(conf.GetConfig("block_height"), 10, 64)
+	prevChainKey, _ := strconv.ParseInt(deep_actions.GetConfig("block_height"), 10, 64)
 	prevChain := deep_actions.GetChain(prevChainKey - 1)
 
 	return prevChain.Hash
@@ -451,26 +299,16 @@ func GetScBalance(address string) []deep_actions.Balance {
 	return balance
 }
 
-func CheckAddressToken(address string) bool {
-	addressData := deep_actions.GetAddress(address)
-	return addressData.TokenLabel != ""
-}
-
 func GetAllNodesBalances() float64 {
-	rows := leveldb.AddressDB.GetAll(metrics.NodePrefix)
 	var result float64
-	for _, row := range rows {
-		a := deep_actions.Address{}
-		if err := json.Unmarshal([]byte(row.Value), &a); err == nil {
-			for _, item := range a.Balance {
-				if item.TokenLabel == config.RewardTokenLabel {
-					result += item.Amount
-					break
-				}
-			}
-		} else {
-			log.Println("Get all nodes balances error:", err)
-		}
+
+	if memory.ValidatorsMemory == nil {
+		return result
+	}
+
+	for _, i := range memory.ValidatorsMemory {
+		balance := GetBalanceForToken(crypt.AddressFromAnotherAddress(metrics.NodePrefix, i.Address), config.RewardTokenLabel)
+		result += balance.Amount
 	}
 
 	return result
@@ -512,7 +350,7 @@ func CalculateReward(address string) float64 {
 func GetTxForHash(hash string) string {
 	row := leveldb.TxsDB.Get(hash)
 	if row.Value != "" {
-		height := apparel.ParseInt64(row.Value)
+		height, _ := strconv.ParseInt(row.Value, 10, 64)
 		block := deep_actions.GetChain(height)
 
 		if block.Txs != nil {
@@ -540,26 +378,22 @@ func BlockHeightUpdate() {
 	config.BlockHeight = GetBlockHeight()
 }
 
-func GetConfig(key string) string {
-	return conf.GetConfig(key)
-}
-
 func GetBlockHeight() int64 {
-	result, _ := strconv.ParseInt(GetConfig("block_height"), 10, 64)
-
-	if result == 0 {
-		//ZeroBlock()
-	}
+	result, _ := strconv.ParseInt(deep_actions.GetConfig("block_height"), 10, 64)
 
 	return result
 }
 
 func GetTokenId() int64 {
-	result, err := strconv.ParseInt(GetConfig("token_id"), 10, 64)
+	result, err := strconv.ParseInt(deep_actions.GetConfig("token_id"), 10, 64)
 	if err != nil {
 		log.Println("Get token id error:", err)
 	}
 	return result
+}
+
+func CheckToken(label string) bool {
+	return deep_actions.CheckToken(label)
 }
 
 func GetTokens(start, limit int64) (interface{}, error) {
@@ -568,12 +402,11 @@ func GetTokens(start, limit int64) (interface{}, error) {
 		tokens = deep_actions.GetAllTokens()
 	} else {
 		for i := start; i <= start+limit-1; i++ {
-			token, err := GetTokenForId(i)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error 1: get token for id %v", err))
-			}
+			token := GetTokenForId(i)
 
-			tokens = append(tokens, token)
+			if token.Id != 0 {
+				tokens = append(tokens, *token)
+			}
 		}
 	}
 
@@ -588,24 +421,13 @@ func GetTokens(start, limit int64) (interface{}, error) {
 	return tokens, nil
 }
 
-func GetTokensCount() int64 {
-	return leveldb.TokenDb.Count()
-}
-
-func GetTokenForId(tokenId int64) (deep_actions.Token, error) {
-	var token deep_actions.Token
+func GetTokenForId(tokenId int64) *deep_actions.Token {
 	tokenLabel := leveldb.TokenIdsDb.Get(strconv.FormatInt(tokenId, 10)).Value
 	if tokenLabel != "" {
-		tokenJson := leveldb.TokenDb.Get(tokenLabel).Value
-		if tokenJson != "" {
-			err := json.Unmarshal([]byte(tokenJson), &token)
-			if err != nil {
-				return token, errors.New(fmt.Sprintf("error 1: %v", err))
-			}
-		}
+		return deep_actions.GetToken(tokenLabel)
 	}
 
-	return token, nil
+	return nil
 }
 
 func AddTokenEmission(tokenLabel string, addEmissionAmount float64) error {

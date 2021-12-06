@@ -45,10 +45,9 @@ func (args *Create) Create() error {
 }
 
 func create(owner, name string, price float64, data, txHash string, blockHeight int64) error {
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
-	tokenEl := NewNftTokenEl(name, owner, price, data, timestampD)
+	tokenEl := NewNftTokenEl(name, owner, price, data, timestamp)
 
 	scAddress := crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, owner)
 	if err := contracts.AddEvent(scAddress, *contracts.NewEvent("Create", timestamp, blockHeight, txHash, owner, ""), EventDB, ConfigDB); err != nil {

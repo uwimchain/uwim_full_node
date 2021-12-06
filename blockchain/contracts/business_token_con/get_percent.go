@@ -50,8 +50,7 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 		return errors.New("empty partners list")
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	partnerExist := false
 	for idx, i := range partners {
@@ -68,7 +67,7 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 					}
 
 					partners[idx].Balance[jdx].Amount -= amount
-					partners[idx].Balance[jdx].UpdateTime = timestampD
+					partners[idx].Balance[jdx].UpdateTime = timestamp
 
 					tokenExist = true
 					break
@@ -96,10 +95,6 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 		}
 	}
 
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-
 	err := contracts.AddEvent(scAddress, *contracts.NewEvent("Get percent", timestamp, blockHeight, txHash, uwAddress, newEventGetPercentTypeData(amount, tokenLabel)), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 13: %v", err))
@@ -107,7 +102,7 @@ func getPercent(scAddress, uwAddress, tokenLabel, txHash string, amount float64,
 
 	partners.Update(scAddress)
 
-	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, amount, tokenLabel, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(scAddress, uwAddress, amount, tokenLabel, "default_transaction")
 
 	return nil
 }

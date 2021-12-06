@@ -9,6 +9,7 @@ import (
 	"node/blockchain/contracts"
 	"node/config"
 	"node/crypt"
+	"strconv"
 )
 
 type AddArgs struct {
@@ -22,12 +23,11 @@ type AddArgs struct {
 }
 
 func NewAddArgs(depositorAddress string, recipientAddress string, amount float64, tokenLabel string, getBlockHeight int64, txHash string, blockHeight int64) (*AddArgs, error) {
-	//amount, _ = apparel.Round(amount)
 	amount = apparel.Round(amount)
 	return &AddArgs{DepositorAddress: depositorAddress, RecipientAddress: recipientAddress, Amount: amount, TokenLabel: tokenLabel, GetBlockHeight: getBlockHeight, TxHash: txHash, BlockHeight: blockHeight}, nil
 }
 
-func (args *AddArgs)Add() error {
+func (args *AddArgs) Add() error {
 	err := add(args.DepositorAddress, args.RecipientAddress, args.TokenLabel, args.TxHash, args.Amount, args.GetBlockHeight, args.BlockHeight)
 	if err != nil {
 		refundError := contracts.RefundTransaction(config.HolderScAddress, args.DepositorAddress, args.Amount, args.TokenLabel)
@@ -85,7 +85,7 @@ func add(depositorAddress, recipientAddress, tokenLabel, txHash string, amount f
 		return errors.New(fmt.Sprintf("error 7: %v", err))
 	}
 
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 	err = contracts.AddEvent(config.HolderScAddress, *contracts.NewEvent("Add", timestamp, config.BlockHeight, txHash, depositorAddress, newEventAddTypeData(depositorAddress, recipientAddress, tokenLabel, amount)), EventDB, ConfigDB)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error 8: %v", err))

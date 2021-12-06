@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"node/apparel"
 	"node/config"
 	"node/storage"
 	"node/storage/deep_actions"
@@ -39,7 +38,7 @@ func (api *Api) Explorer(args *ExplorerArgs, result *string) error {
 		timestamp2, _ := strconv.ParseInt(transactions[j].Timestamp, 10, 64)
 		return timestamp1 < timestamp2
 	})
-	explorer["transactions"] = 	transactions
+	explorer["transactions"] = transactions
 
 	explorerJson, err := json.Marshal(explorer)
 	if err != nil {
@@ -49,8 +48,6 @@ func (api *Api) Explorer(args *ExplorerArgs, result *string) error {
 	*result = string(explorerJson)
 	return nil
 }
-
-
 
 func explorerBlocks(start, limit int64, last bool) interface{} {
 	if last {
@@ -79,7 +76,7 @@ func explorerBlocks(start, limit int64, last bool) interface{} {
 		row := leveldb.ChainDB.Get(strconv.FormatInt(i, 10))
 		err := json.Unmarshal([]byte(row.Value), &block)
 		if err == nil {
-			block.Height = apparel.ParseInt64(row.Key)
+			block.Height, _ = strconv.ParseInt(row.Key, 10, 64)
 			blocks = append(blocks, block)
 		}
 	}

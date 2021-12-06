@@ -6,6 +6,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"node/apparel"
 	"node/blockchain/contracts"
+	"strconv"
 )
 
 type ConfirmationArgs struct {
@@ -29,7 +30,7 @@ func Confirmation(args *ConfirmationArgs) error {
 }
 
 func confirmation(scAddress, uwAddress, txHash string, blockHeight int64) error {
-	timestamp := apparel.TimestampUnix()
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	var scAddressPool []Pool
 	scAddressPoolJson := PoolDB.Get(scAddress).Value

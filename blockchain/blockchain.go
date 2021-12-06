@@ -79,7 +79,7 @@ func Worker() {
 
 						votes := addNodesForVote()
 
-						var body []deep_actions.Tx
+						var body deep_actions.Txs
 
 						if int64(len(storage.TransactionsMemory)) <= config.MaxStorageMemory {
 							for _, t := range storage.TransactionsMemory {
@@ -97,9 +97,9 @@ func Worker() {
 						}
 
 						if config.BlockHeight%int64(len(memory.ValidatorsMemory)) == 0 {
-							miningTransaction := delegateTransaction()
-							if miningTransaction.Amount != 0 && miningTransaction.Amount >= 0 {
-								body = append(body, miningTransaction)
+							delegateTransaction := delegateTransaction()
+							if delegateTransaction.Amount != 0 && delegateTransaction.Amount >= 0 {
+								body = append(body, delegateTransaction)
 							}
 						}
 
@@ -175,7 +175,9 @@ func Worker() {
 
 								storage.AddBlock()
 
-								err := vote_con.Stop(vote_con.NewStopArgs(config.BlockHeight, apparel.ParseInt64(storage.BlockMemory.Timestamp)))
+								stopArgs := vote_con.NewStopArgs(config.BlockHeight, storage.BlockMemory.Timestamp)
+
+								err := stopArgs.Stop()
 								if err != nil {
 									log.Println("stop votes error: ", err)
 								}
@@ -216,7 +218,8 @@ func Worker() {
 					NodeOperationMemory.Operation = 4
 					NodeOperationMemory.Status = false
 					if memory.IsValidator() {
-						storage.Update()
+
+						storage.ClearTransactionMemory()
 
 						NodeOperationMemory.Status = true
 						NodeOperationMemory.PrevOperation = 0
@@ -296,31 +299,17 @@ func rewardTransaction() deep_actions.Tx {
 	tx := deep_actions.Tx{
 		Type:       2,
 		Nonce:      apparel.GetNonce(timestamp),
-		HashTx:     "",
 		Height:     config.BlockHeight,
 		From:       config.GenesisAddress,
 		To:         config.NodeUwAddress,
 		Amount:     amount,
 		TokenLabel: config.RewardTokenLabel,
 		Timestamp:  timestamp,
-		Tax:        0,
-		Signature:  nil,
 		Comment:    comment,
 	}
 
-	jsonString, _ := json.Marshal(deep_actions.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.GenesisSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
+	tx.SetSignature(config.GenesisSecretKey)
+	tx.SetHash()
 
 	return tx
 }
@@ -337,41 +326,27 @@ func delegateTransaction() deep_actions.Tx {
 	tx := deep_actions.Tx{
 		Type:       2,
 		Nonce:      apparel.GetNonce(timestamp),
-		HashTx:     "",
 		Height:     config.BlockHeight,
 		From:       config.GenesisAddress,
 		To:         config.DelegateScAddress,
 		Amount:     amount,
 		TokenLabel: config.RewardTokenLabel,
 		Timestamp:  timestamp,
-		Tax:        0,
-		Signature:  nil,
 		Comment:    comment,
 	}
 
-	jsonString, _ := json.Marshal(deep_actions.Tx{
-		Type:       tx.Type,
-		Nonce:      tx.Nonce,
-		From:       tx.From,
-		To:         tx.To,
-		Amount:     tx.Amount,
-		TokenLabel: tx.TokenLabel,
-		Comment:    tx.Comment,
-	})
-	tx.Signature = crypt.SignMessageWithSecretKey(config.GenesisSecretKey, jsonString)
-
-	jsonString, _ = json.Marshal(tx)
-	tx.HashTx = crypt.GetHash(jsonString)
+	tx.SetSignature(config.GenesisSecretKey)
+	tx.SetHash()
 
 	return tx
 }
 
-func addNodesForVote() []deep_actions.Vote {
-	var votes []deep_actions.Vote
+func addNodesForVote() deep_actions.Votes {
+	var votes deep_actions.Votes
 
 	if memory.ValidatorsMemory != nil {
 		for _, node := range memory.ValidatorsMemory {
-			votes = append(votes, *deep_actions.NewVote(node.Address, nil, config.BlockHeight, false))
+			votes = append(votes, deep_actions.Vote{Proposer: node.Address, BlockHeight: config.BlockHeight})
 		}
 	}
 
@@ -655,7 +630,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 
 		break
 	case "vote_contract_hard_stop_transaction":
-		voteHardStopArgs, err := vote_con.NewHardStopArgs(apparel.ConvertInterfaceToString(commentData["vote_nonce"]), t.HashTx, t.Height, t.From)
+		voteHardStopArgs, err := vote_con.NewHardStopArgs(apparel.ConvertInterfaceToInt64(commentData["vote_nonce"]), t.HashTx, t.Height, t.From)
 		if err != nil {
 			log.Println(
 				"Deep actions new tx vote contract hard stop transaction error 2:",
@@ -675,7 +650,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 	case "vote_contract_answer_transaction":
 		voteAnswerArgs, err := vote_con.NewAnswerArgs(t.From, t.Signature, t.HashTx,
 			apparel.ConvertInterfaceToString(commentData["possible_answer_nonce"]),
-			apparel.ConvertInterfaceToString(commentData["vote_nonce"]), t.Height)
+			apparel.ConvertInterfaceToInt64(commentData["vote_nonce"]), t.Height)
 		if err != nil {
 			log.Println(
 				"Deep actions new tx vote contract answer transaction error 2:",
@@ -683,7 +658,7 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 			break
 		}
 
-		err = vote_con.Answer(voteAnswerArgs)
+		err = voteAnswerArgs.Answer()
 		if err != nil {
 			log.Println(
 				"Deep actions new tx vote contract answer transaction error 3:",
@@ -801,7 +776,8 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 
 		break
 	case "default_contract_set_price_transaction":
-		setPriceArgs, err := default_con.NewSetPrice(apparel.ConvertInterfaceToInt64(commentData["id"]), apparel.ConvertInterfaceToFloat64(commentData["new_price"]), t.HashTx, t.Height)
+		setPriceArgs, err := default_con.NewSetPrice(apparel.ConvertInterfaceToInt64(commentData["id"]),
+			apparel.ConvertInterfaceToFloat64(commentData["new_price"]), t.HashTx, t.Height)
 		if err != nil {
 			log.Println("Deep actions new tx default contract set price transaction error 2:", err)
 			break
@@ -811,13 +787,27 @@ func ExecutionSmartContractsWithType1Transaction(t deep_actions.Tx) {
 			log.Println("Deep actions new tx default contract set price transaction error 3:", err)
 			break
 		}
+		break
+	case "default_contract_fill_config_transaction":
+		scAddress := crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, t.From)
+		fillConfigArgs, err := default_con.NewFillConfigArgs(scAddress,
+			apparel.ConvertInterfaceToFloat64(commentData["commission"]), t.HashTx, t.Height)
+		if err != nil {
+			log.Println("Deep actions new tx trade token contract fill config transaction error 1:", err)
+			break
+		}
+
+		if err := fillConfigArgs.FillConfig(); err != nil {
+			log.Println("Deep actions new tx trade token contract fill config transaction error 2:", err)
+			break
+		}
+		break
 	}
 }
 
 func ExecutionSmartContractsWithType2Transaction(t deep_actions.Tx) {
 	if t.Comment.Title == "delegate_reward_transaction" && t.To == config.DelegateScAddress {
-		timestamp, _ := strconv.ParseInt(t.Timestamp, 10, 64)
-		_ = delegate_con.Bonus(t.Timestamp, timestamp)
+		_ = delegate_con.Bonus(t.Timestamp)
 	}
 }
 
@@ -835,37 +825,32 @@ func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
 			if len(token.StandardHistory) != 1 {
 				hash := token.StandardHistory[len(token.StandardHistory)-1].TxHash
 				if hash == "" {
-					log.Println(
-						"Deep actions new tx change token standard transaction error 1")
+					log.Println("Deep actions new tx change token standard transaction error 1")
 					break
 				}
 
 				jsonString := storage.GetTxForHash(hash)
 				if jsonString == "" {
-					log.Println(
-						"Deep actions new tx change token standard transaction error 2")
+					log.Println("Deep actions new tx change token standard transaction error 2")
 					break
 				}
 
 				tx := deep_actions.Tx{}
 				err := json.Unmarshal([]byte(jsonString), &tx)
 				if err != nil {
-					log.Println(
-						"Deep actions new tx change token standard transaction error 3:", err)
+					log.Println("Deep actions new tx change token standard transaction error 3:", err)
 					break
 				}
 
 				if tx.Comment.Title != "change_token_standard_transaction" {
-					log.Println(
-						"Deep actions new tx change token standard transaction error 4")
+					log.Println("Deep actions new tx change token standard transaction error 4")
 					break
 				}
 
 				t := deep_actions.Token{}
 				err = json.Unmarshal(tx.Comment.Data, &t)
 				if err != nil {
-					log.Println(
-						"Deep actions new tx change token standard transaction error 5:",
+					log.Println("Deep actions new tx change token standard transaction error 5:",
 						err)
 					break
 				}
@@ -875,38 +860,32 @@ func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
 				if standard == token.Standard {
 					hash := token.StandardHistory[len(token.StandardHistory)-2].TxHash
 					if hash == "" {
-						log.Println(
-							"Deep actions new tx change token standard transaction error 1")
+						log.Println("Deep actions new tx change token standard transaction error 1")
 						break
 					}
 
 					jsonString := storage.GetTxForHash(hash)
 					if jsonString == "" {
-						log.Println(
-							"Deep actions new tx change token standard transaction error 2")
+						log.Println("Deep actions new tx change token standard transaction error 2")
 						break
 					}
 
 					tx := deep_actions.Tx{}
 					err := json.Unmarshal([]byte(jsonString), &tx)
 					if err != nil {
-						log.Println(
-							"Deep actions new tx change token standard transaction error 3:", err)
+						log.Println("Deep actions new tx change token standard transaction error 3:", err)
 						break
 					}
 
 					if tx.Comment.Title != "change_token_standard_transaction" {
-						log.Println(
-							"Deep actions new tx change token standard transaction error 4")
+						log.Println("Deep actions new tx change token standard transaction error 4")
 						break
 					}
 
 					t := deep_actions.Token{}
 					err = json.Unmarshal(tx.Comment.Data, &t)
 					if err != nil {
-						log.Println(
-							"Deep actions new tx change token standard transaction error 5:",
-							err)
+						log.Println("Deep actions new tx change token standard transaction error 5:", err)
 						break
 					}
 
@@ -917,9 +896,7 @@ func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
 
 		publicKey, err := crypt.PublicKeyFromAddress(t.From)
 		if err != nil {
-			log.Println(
-				"Deep actions new tx change token standard transaction error 6:",
-				err)
+			log.Println("Deep actions new tx change token standard transaction error 6:", err)
 			break
 		}
 
@@ -928,27 +905,21 @@ func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
 		case 0:
 			err := my_token_con.ChangeStandard(scAddress)
 			if err != nil {
-				log.Println(
-					"Deep actions new tx change token standard transaction error 7:",
-					err)
+				log.Println("Deep actions new tx change token standard transaction error 7:", err)
 				break
 			}
 			break
 		case 1:
 			err := donate_token_con.ChangeStandard(scAddress)
 			if err != nil {
-				log.Println(
-					"Deep actions new tx change token standard transaction error 8:",
-					err)
+				log.Println("Deep actions new tx change token standard transaction error 8:", err)
 				break
 			}
 			break
 		case 4:
 			err := business_token_con.ChangeStandard(scAddress)
 			if err != nil {
-				log.Println(
-					"Deep actions new tx change token standard transaction error 9:",
-					err)
+				log.Println("Deep actions new tx change token standard transaction error 9:", err)
 				break
 			}
 			break
@@ -957,9 +928,7 @@ func ExecutionSmartContractsWithType3Transaction(t deep_actions.Tx) {
 		if token.Standard == 5 {
 			err := trade_token_con.AddToken(scAddress)
 			if err != nil {
-				log.Println(
-					"Deep actions new tx change token standard transaction error 10:",
-					err)
+				log.Println("Deep actions new tx change token standard transaction error 10:", err)
 			}
 		}
 		break
@@ -971,6 +940,7 @@ func ExecutionSmartContractsWithType5Transaction(t deep_actions.Tx) {
 	case "undelegate_contract_transaction":
 		if t.From != config.DelegateScAddress {
 			log.Println("Deep actions new tx delegate contract undelegate transaction error 1")
+			break
 		}
 
 		commentData := make(map[string]interface{})

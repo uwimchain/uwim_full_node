@@ -10,7 +10,6 @@ import (
 	"strconv"
 )
 
-// function for get commission
 func GetCom(args *GetArgs) error {
 	err := getCom(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.BlockHeight)
 	if err != nil {
@@ -50,8 +49,7 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 		return errors.New("error 4: token does not exist")
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	check := -1
 	var txAmount float64 = 0
@@ -106,11 +104,7 @@ func getCom(scAddress, uwAddress, tokenLabel, txHash string, blockHeight int64) 
 	PoolDB.Put(scAddress, string(jsonScAddressPool))
 	HolderDB.Put(scAddress, string(jsonScAddressHolders))
 
-	txCommentSign, _ := json.Marshal(contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	))
-
-	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount, tokenLabel, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(scAddress, uwAddress, txAmount, tokenLabel, "default_transaction")
 
 	return nil
 }

@@ -2,9 +2,6 @@ package deep_actions
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"log"
 	"node/config"
 	"node/crypt"
 	"node/storage/leveldb"
@@ -33,34 +30,6 @@ type Comment struct {
 	Data  []byte `json:"data"`
 }
 
-func NewComment(title string, data []byte) *Comment {
-	return &Comment{
-		Title: title,
-		Data:  data,
-	}
-}
-
-func NewTx(txType int64, nonce int64, hashTx string, height int64, from string, to string, amount float64, tokenLabel string, timestamp string, tax float64, signature []byte, comment Comment) *Tx {
-	return &Tx{
-		Type:       txType,
-		Nonce:      nonce,
-		HashTx:     hashTx,
-		Height:     height,
-		From:       from,
-		To:         to,
-		Amount:     amount,
-		TokenLabel: tokenLabel,
-		Timestamp:  timestamp,
-		Tax:        tax,
-		Signature:  signature,
-		Comment:    comment,
-	}
-}
-
-func GetTxJson(address string) string {
-	return leveldb.TxDB.Get(address).Value
-}
-
 func (tx *Tx) SetSignature(secretKey []byte) {
 	jsonString, _ := json.Marshal(Tx{
 		Type:       tx.Type,
@@ -79,18 +48,50 @@ func (tx *Tx) SetHash() {
 	tx.HashTx = crypt.GetHash(jsonString)
 }
 
+func (tx *Tx) GetJsonForValidateSignature() []byte {
+	jsonString, _ := json.Marshal(Tx{
+		Type:       tx.Type,
+		Nonce:      tx.Nonce,
+		From:       tx.From,
+		To:         tx.To,
+		Amount:     tx.Amount,
+		TokenLabel: tx.TokenLabel,
+		Comment:    tx.Comment,
+	})
+
+	return jsonString
+}
+
 type Chain struct {
 	Hash   string `json:"hash"`
 	Header Header `json:"header"`
-	Txs    []Tx   `json:"txs"`
+	Txs    Txs    `json:"txs"`
 }
 
-func NewChain(hash string, header Header, txs []Tx) *Chain {
+type Chains []Chain
+
+func NewChain(header Header, txs Txs) *Chain {
 	return &Chain{
-		Hash:   hash,
 		Header: header,
 		Txs:    txs,
 	}
+}
+
+func (chain *Chain) SetHash() {
+	jsonString, _ := json.Marshal(Chain{
+		Header: Header{
+			PrevHash:          chain.Header.PrevHash,
+			TxCounter:         chain.Header.TxCounter,
+			Timestamp:         chain.Header.Timestamp,
+			ProposerSignature: chain.Header.ProposerSignature,
+			Proposer:          chain.Header.Proposer,
+			Votes:             nil,
+			VoteCounter:       0,
+		},
+		Txs: chain.Txs,
+	})
+
+	chain.Hash = crypt.GetHash(jsonString)
 }
 
 type Header struct {
@@ -99,20 +100,8 @@ type Header struct {
 	Timestamp         string `json:"timestamp"`
 	ProposerSignature []byte `json:"proposerSignature"`
 	Proposer          string `json:"proposer"`
-	Votes             []Vote `json:"votes"`
+	Votes             Votes  `json:"votes"`
 	VoteCounter       int64  `json:"voteCounter"`
-}
-
-func NewHeader(prevHash string, txCounter int64, timestamp string, proposerSignature []byte, proposer string, votes []Vote, voteCounter int64) *Header {
-	return &Header{
-		PrevHash:          prevHash,
-		TxCounter:         txCounter,
-		Timestamp:         timestamp,
-		ProposerSignature: proposerSignature,
-		Proposer:          proposer,
-		Votes:             votes,
-		VoteCounter:       voteCounter,
-	}
 }
 
 type Vote struct {
@@ -122,42 +111,10 @@ type Vote struct {
 	Vote        bool   `json:"vote"`
 }
 
-func NewVote(proposer string, signature []byte, blockHeight int64, vote bool) *Vote {
-	return &Vote{
-		Proposer:    proposer,
-		Signature:   signature,
-		BlockHeight: blockHeight,
-		Vote:        vote,
-	}
-}
+type Votes []Vote
 
-func (c *Chain) NewChain(chain Chain) error {
-	chainForJson := Chain{
-		Header: Header{
-			PrevHash:          chain.Header.PrevHash,
-			TxCounter:         chain.Header.TxCounter,
-			Timestamp:         chain.Header.Timestamp,
-			ProposerSignature: chain.Header.ProposerSignature,
-			Proposer:          chain.Header.Proposer,
-		},
-		Txs: chain.Txs,
-	}
-
-	jsonForHash, err := json.Marshal(chainForJson)
-	if err != nil {
-		log.Println("New Chain error: ", err)
-	}
-
-	hash := crypt.GetHash(jsonForHash)
-
-	if hash == chain.Header.PrevHash {
-		return errors.New("New chain error: hash == prev hash")
-	}
-
-	jsonString, err := json.Marshal(NewChain(hash, chain.Header, chain.Txs))
-	if err != nil {
-		return errors.New(fmt.Sprintf("New Chain error: %v", err))
-	}
+func (chain *Chain) Update() error {
+	jsonString, _ := json.Marshal(chain)
 
 	leveldb.ChainDB.Put(strconv.FormatInt(config.BlockHeight, 10), string(jsonString))
 
@@ -181,7 +138,7 @@ type Config struct {
 	Value string `json:"value"`
 }
 
-func (c *Config) GetConfig(key string) string {
+func GetConfig(key string) string {
 	return leveldb.ConfigDB.Get(key).Value
 }
 

@@ -11,7 +11,6 @@ import (
 	"strconv"
 )
 
-// function for swap uwm on scToken
 func Swap(args *TradeArgs) error {
 	err := swap(args.ScAddress, args.UwAddress, args.TokenLabel, args.TxHash, args.Amount, args.BlockHeight)
 	if err != nil {
@@ -78,8 +77,7 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 		return errors.New(fmt.Sprintf("error 7: token of this smart-contract \"%s\" does not exist", scAddress))
 	}
 
-	timestamp := apparel.TimestampUnix()
-	timestampD := strconv.FormatInt(timestamp, 10)
+	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
 
 	var (
 		txAmount float64 = 0
@@ -88,33 +86,29 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 	)
 
 	if scAddressPool.SecondToken.Amount > 0 && scAddressPool.FirstToken.Amount > 0 {
-		if scAddressPool.FirstToken.Amount > scAddressPool.SecondToken.Amount {
-			course = scAddressPool.SecondToken.Amount / scAddressPool.FirstToken.Amount
-		} else {
-			course = scAddressPool.FirstToken.Amount / scAddressPool.SecondToken.Amount
-		}
+		course = scAddressPool.FirstToken.Amount / scAddressPool.SecondToken.Amount
 	}
 
 	txTokenLabel := ""
 	switch tokenLabel {
 	case config.BaseToken:
 		txTokenLabel = token.Label
-		txAmount = apparel.Round(amount * course)
+		txAmount = apparel.Round(amount / course)
 		tax = txAmount * (scAddressConfigData.Commission / 100)
 
 		scAddressPool.FirstToken.Amount += amount
-		scAddressPool.FirstToken.UpdateTime = timestamp
+		scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 		scAddressPool.SecondToken.Amount -= txAmount
 		if scAddressPool.SecondToken.Amount < 1 {
 			return errors.New(fmt.Sprintf("error 8: low balance for token %s,  txAmount: %g,  amount: %g,  cource: %g",
 				txTokenLabel, txAmount, amount, course))
 		}
-		scAddressPool.SecondToken.UpdateTime = timestamp
+		scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 		break
 	case token.Label:
 		txTokenLabel = config.BaseToken
-		txAmount = apparel.Round(amount / course)
+		txAmount = apparel.Round(amount * course)
 		tax = txAmount * (scAddressConfigData.Commission / 100)
 
 		scAddressPool.FirstToken.Amount -= txAmount
@@ -122,12 +116,13 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 			return errors.New(fmt.Sprintf("error 9: low balance for token %s,  txAmount: %g,  amount: %g,  cource: %g",
 				txTokenLabel, txAmount, amount, course))
 		}
-		scAddressPool.FirstToken.UpdateTime = timestamp
+		scAddressPool.FirstToken.UpdateTime = contracts.String(timestamp)
 
 		scAddressPool.SecondToken.Amount += amount - tax
-		scAddressPool.SecondToken.UpdateTime = timestamp
+		scAddressPool.SecondToken.UpdateTime = contracts.String(timestamp)
 		break
 	}
+
 	if tax != 0 && scAddressHolders != nil {
 		var holdersReward float64 = 0
 		for _, i := range scAddressHolders {
@@ -185,11 +180,7 @@ func swap(scAddress, uwAddress, tokenLabel, txHash string, amount float64, block
 	ConfigDB.Put(scAddress, string(jsonScAddressConfig))
 	HolderDB.Put(scAddress, string(jsonScAddressHolders))
 
-	txCommentSign := contracts.NewBuyTokenSign(
-		config.NodeNdAddress,
-	)
-
-	contracts.SendNewScTx(timestampD, config.BlockHeight, scAddress, uwAddress, txAmount-tax, txTokenLabel, "default_transaction", txCommentSign)
+	contracts.SendNewScTx(scAddress, uwAddress, txAmount-tax, txTokenLabel, "default_transaction")
 
 	return nil
 }

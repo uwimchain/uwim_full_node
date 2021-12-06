@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"node/apparel"
+	"node/config"
 	"node/crypt"
 	"node/storage/leveldb"
 	"sort"
@@ -27,30 +28,6 @@ type Balance struct {
 	UpdateTime string  `json:"updateTime"`
 }
 
-func NewBalance(tokenLabel string, amount float64, updateTime string) *Balance {
-	return &Balance{TokenLabel: tokenLabel, Amount: amount, UpdateTime: updateTime}
-}
-
-func NewAddress(address string, balance []Balance, publicKey []byte, firstTxTime string, lastTxTime string) *Address {
-	return &Address{
-		Address:     address,
-		Balance:     balance,
-		PublicKey:   publicKey,
-		FirstTxTime: firstTxTime,
-		LastTxTime:  lastTxTime,
-		TokenLabel:  "",
-		ScKeeping:   false,
-		Name:        "",
-	}
-
-}
-
-func (a *Address) Create() {
-	jsonString, _ := json.Marshal(a)
-
-	leveldb.AddressDB.Put(a.Address, string(jsonString))
-}
-
 func GetAddress(addressString string) *Address {
 	address := new(Address)
 	addressJson := leveldb.AddressDB.Get(addressString).Value
@@ -64,7 +41,7 @@ func (a *Address) Update() {
 	leveldb.AddressDB.Put(a.Address, string(jsonString))
 }
 
-func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
+func (a *Address) UpdateBalance(address string, amount float64, tokenLabel, timestamp string, side bool) {
 	if a.Address == "" {
 		publicKey, err := crypt.PublicKeyFromAddress(address)
 		if err != nil {
@@ -73,11 +50,16 @@ func (a *Address) UpdateBalance(address string, balance Balance, side bool) {
 
 		a.Address = address
 		a.PublicKey = publicKey
-		a.FirstTxTime = balance.UpdateTime
+		a.FirstTxTime = timestamp
 	}
 
-	a.Balance = updateBalance(a.Balance, balance, side)
-	a.LastTxTime = balance.UpdateTime
+	a.Balance = updateBalance(a.Balance, Balance{
+		TokenLabel: tokenLabel,
+		Amount:     amount,
+		UpdateTime: timestamp,
+	}, side)
+	a.LastTxTime = timestamp
+
 	a.Update()
 }
 
@@ -139,12 +121,12 @@ func updateBalance(balance []Balance, newBalance Balance, side bool) []Balance {
 	return balance
 }
 
-func (a *Address) GetTxs() []Tx {
+func (a *Address) GetTxs() Txs {
 	if a.Address == "" {
 		return nil
 	}
 	txsJson := leveldb.TxDB.Get(a.Address).Value
-	var txs []Tx
+	var txs Txs
 
 	if txsJson == "" {
 		return nil
@@ -162,62 +144,36 @@ func (a *Address) GetTxs() []Tx {
 		return timestamp1 > timestamp2
 	})
 
-	if len(txs) > 30 {
-		return txs[:30]
+	if len(txs) > config.BalanceTransactionsLimit {
+		return txs[:config.BalanceTransactionsLimit]
 	} else {
 		return txs
 	}
 }
 
-func (a *Address) AppendTx(tx Tx) {
-	txs := append(a.GetTxs(), tx)
-	jsonString, _ := json.Marshal(txs)
-	leveldb.TxDB.Put(a.Address, string(jsonString))
+func (a *Address) GetAllTxs() Txs {
+	if a.Address == "" {
+		return nil
+	}
+	txsJson := leveldb.TxDB.Get(a.Address).Value
+	var txs Txs
+
+	if txsJson == "" {
+		return nil
+	}
+
+	_ = json.Unmarshal([]byte(txsJson), &txs)
+
+	if txs == nil {
+		return nil
+	}
+
+	return txs
 }
 
-func (a *Address) UpdateBalanceTest(amount float64, label string, side bool) {
-	if a.Address == "" {
-		return
-	}
-
-	idx := -1
-	for i := range a.Balance {
-		if a.Balance[i].TokenLabel == label {
-			idx = i
-		}
-	}
-
-	amount = apparel.Round(amount)
-	timestamp := strconv.FormatInt(apparel.TimestampUnix(), 10)
-
-	switch side {
-	case true:
-		if idx >= 0 {
-			a.Balance[idx].Amount += amount
-			a.Balance[idx].UpdateTime = timestamp
-		} else {
-			a.Balance = append(a.Balance, Balance{
-				TokenLabel: label,
-				Amount:     amount,
-				UpdateTime: timestamp,
-			})
-		}
-		break
-	case false:
-		if idx >= 0 {
-			if a.Balance[idx].Amount >= amount {
-				a.Balance[idx].Amount -= amount
-				a.Balance[idx].UpdateTime = timestamp
-			}
-		}
-		break
-	}
-
-	if a.FirstTxTime == "" {
-		a.FirstTxTime = timestamp
-	}
-
-	a.LastTxTime = timestamp
-
-	a.Update()
+func (a *Address) AppendTx(tx Tx) {
+	txs := a.GetAllTxs()
+	txs = append(txs, tx)
+	jsonString, _ := json.Marshal(txs)
+	leveldb.TxDB.Put(a.Address, string(jsonString))
 }

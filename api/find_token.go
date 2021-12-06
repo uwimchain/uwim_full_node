@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"node/blockchain/contracts/business_token_con"
 	"node/blockchain/contracts/donate_token_con"
 	"node/blockchain/contracts/my_token_con"
@@ -24,9 +23,12 @@ type TokenCardHistory struct {
 }
 
 func (api *Api) FindToken(args *FindTokenArgs, result *string) error {
-	token := deep_actions.GetToken(args.Label)
-	var tokenCardHistory []TokenCardHistory
+	info := make(map[string]interface{})
 
+	token := deep_actions.GetToken(args.Label)
+	info["token"] = token
+
+	var tokenCardHistory []TokenCardHistory
 	if token.CardHistory != nil {
 		for _, item := range token.CardHistory {
 			jsonString := storage.GetTxForHash(item.TxHash)
@@ -37,58 +39,42 @@ func (api *Api) FindToken(args *FindTokenArgs, result *string) error {
 				tokenCardHistory = append(tokenCardHistory, TokenCardHistory{transaction.HashTx, transaction.Timestamp, string(transaction.Comment.Data)})
 			}
 		}
+
+		info["token_card_history"] = tokenCardHistory
 	}
 
-	tokenScAddress := ""
-	var tokenScBalance []deep_actions.Balance
-	var tokenScTransactions []deep_actions.Tx
-	tokenScInfo := ""
 	if token.Proposer != "" {
-		publicKey, err := crypt.PublicKeyFromAddress(token.Proposer)
-		if err != nil {
-			log.Println("Api find token error 1:", err)
-		} else {
-			tokenScAddress = crypt.AddressFromPublicKey(metrics.SmartContractPrefix, publicKey)
-		}
-
-		scAddress := deep_actions.GetAddress(tokenScAddress)
-		tokenScBalance = storage.GetBalance(tokenScAddress)
-		tokenScTransactions = scAddress.GetTxs()
+		scAddress := crypt.AddressFromAnotherAddress(metrics.SmartContractPrefix, token.Proposer)
+		info["token_sc_address"] = scAddress
+		scAddressObj := deep_actions.GetAddress(scAddress)
+		info["token_sc_balance"] = scAddressObj.GetBalance()
+		info["token_sc_transactions"] = scAddressObj.GetTxs()
 
 		switch token.Standard {
 		case 0:
-			scAddressPool, _ := my_token_con.GetPool(tokenScAddress)
+			scAddressPool, _ := my_token_con.GetPool(scAddress)
 			if scAddressPool != nil {
-				jsonString, err := json.Marshal(scAddressPool)
-				if err != nil {
-					log.Println("Api find token error 2:", err)
-				} else {
-					tokenScInfo = string(jsonString)
-				}
+				jsonString, _ := json.Marshal(scAddressPool)
+				//if err != nil {
+				//	log.Println("Api find token error 2:", err)
+				//} else {
+				//	tokenScInfo = string(jsonString)
+				//}
+				info["token_sc_info"] = string(jsonString)
 			}
+		case 1:
+			info["config"] = donate_token_con.GetConfig(scAddress)
+			break
+		case 4:
+			info["config"] = business_token_con.GetConfig(scAddress)
+			break
+		case 5:
+			info["config"] = trade_token_con.GetConfig(scAddress)
+			tokenScInfo, _ := trade_token_con.GetToken(scAddress)
+			info["token_sc_info"] = string(tokenScInfo)
+			break
 		}
 	}
-
-	info := make(map[string]interface{})
-
-	switch token.Standard {
-	case 1:
-		info["config"] = donate_token_con.GetConfig(tokenScAddress)
-		break
-	case 4:
-		info["config"] = business_token_con.GetConfig(tokenScAddress)
-		break
-	case 5:
-		info["config"] = trade_token_con.GetConfig(tokenScAddress)
-		break
-	}
-
-	info["token"] = token
-	info["token_card_history"] = token
-	info["token_sc_address"] = tokenScAddress
-	info["token_sc_balance"] = tokenScBalance
-	info["token_sc_transactions"] = tokenScTransactions
-	info["token_sc_info"] = tokenScInfo
 
 	resultJsonString, _ := json.Marshal(info)
 
